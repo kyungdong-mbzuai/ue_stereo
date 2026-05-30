@@ -86,7 +86,7 @@ bool USimGameViewportClient::GetHMDHeadPose(FQuat& OutOrientation, FVector& OutP
 	return bSuccess;
 }
 
-void USimGameViewportClient::EnsureStereoDevice()
+void USimGameViewportClient::EnsureCustomStereo()
 {
 	if (!bCustomStereo)
 	{
@@ -95,7 +95,7 @@ void USimGameViewportClient::EnsureStereoDevice()
 
 	if (!GEngine)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("[SimStereo] EnsureStereoDevice - GEngine is null"));
+		UE_LOG(LogTemp, Warning, TEXT("[SimStereo] EnsureCustomStereo - GEngine is null"));
 		return;
 	}
 
@@ -105,7 +105,7 @@ void USimGameViewportClient::EnsureStereoDevice()
 	{
 		SimStereoRenderingDevice = MakeShareable(new FSimStereoRendering());
 		SimStereoRenderingDevice->EnableStereo(true);
-		UE_LOG(LogTemp, Warning, TEXT("[SimStereo] EnsureStereoDevice - standalone FSimStereoRendering created (GEngine device NOT replaced)"));
+		UE_LOG(LogTemp, Warning, TEXT("[SimStereo] EnsureCustomStereo - standalone FSimStereoRendering created (GEngine device NOT replaced)"));
 	}
 
 	// Share the standalone device with SimLocalPlayer so GetProjectionData can use AdjustViewRect.
@@ -114,7 +114,7 @@ void USimGameViewportClient::EnsureStereoDevice()
 	if (SimPlayer && SimPlayer->CustomStereoDevice != SimStereoRenderingDevice)
 	{
 		SimPlayer->CustomStereoDevice = SimStereoRenderingDevice;
-		UE_LOG(LogTemp, Warning, TEXT("[SimStereo] EnsureStereoDevice - CustomStereoDevice shared with SimLocalPlayer"));
+		UE_LOG(LogTemp, Warning, TEXT("[SimStereo] EnsureCustomStereo - CustomStereoDevice shared with SimLocalPlayer"));
 	}
 
 	EngineShowFlags.SetStereoRendering(true);
@@ -174,7 +174,7 @@ void USimGameViewportClient::Draw(FViewport* InViewport, FCanvas* SceneCanvas)
 		UHeadMountedDisplayFunctionLibrary::SetSpectatorScreenMode(Mode);
 	}
 
-	EnsureStereoDevice();
+	EnsureCustomStereo();
 
 	FVector CurrentHMDPosition;
 	FQuat   CurrentHMDOrientation;
@@ -214,30 +214,9 @@ void USimGameViewportClient::Draw(FViewport* InViewport, FCanvas* SceneCanvas)
 		UE_LOG(LogTemp, Warning, TEXT("[SimStereo] ViewportClient::Draw - SViewport::EnableStereoRendering(true) called"));
 	}
 
-	if (!bStereoEnabledOnViewport)
-	{
-		bStereoEnabledOnViewport = true;
-		const bool bDeviceValid   = GEngine && GEngine->StereoRenderingDevice.IsValid();
-		const bool bStereoEnabled = bDeviceValid && GEngine->StereoRenderingDevice->IsStereoEnabled();
-		const bool bStereo3D      = GEngine && GEngine->IsStereoscopic3D(InViewport);
-		UE_LOG(LogTemp, Warning, TEXT("[SimStereo] ViewportClient::Draw(first) - StereoDevice valid=%s, IsStereoEnabled=%s, IsStereoscopic3D=%s"),
-			bDeviceValid   ? TEXT("YES") : TEXT("NO"),
-			bStereoEnabled ? TEXT("YES") : TEXT("NO"),
-			bStereo3D      ? TEXT("YES") : TEXT("NO"));
-		UE_LOG(LogTemp, Warning, TEXT("[SimStereo] ViewportClient::Draw(first) - IsStereoRenderingAllowed=%s, EngineShowFlags.StereoRendering=%s"),
-			InViewport && InViewport->IsStereoRenderingAllowed() ? TEXT("YES") : TEXT("NO"),
-			EngineShowFlags.StereoRendering ? TEXT("YES") : TEXT("NO"));
-	}
-
 
 	// Render scene first so the viewport render target is populated.
 	Super::Draw(InViewport, SceneCanvas);
-
-	// Auto-open StereoWindow on first valid draw.
-	if (!StereoWindow.IsValid() || !StereoWindow->IsOpen())
-	{
-		OpenStereoWindow();
-	}
 
 	// Forward the scene render texture to the stereo output window when open.
 	if (StereoWindow.IsValid() && StereoWindow->IsOpen())

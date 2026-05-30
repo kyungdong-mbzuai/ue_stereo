@@ -47,11 +47,10 @@ protected:
 	virtual void BeginDestroy() override;
 
 private:
-	void EnsureStereoDevice();
+	void EnsureCustomStereo();
 	void LoadStereoWindowConfig();
 	
 	bool bCustomStereo = false;
-	bool bStereoEnabledOnViewport = false;
 	bool bViewportWindowResizable  = false;
 	TSharedPtr<FSimStereoRendering, ESPMode::ThreadSafe> SimStereoRenderingDevice;
 
