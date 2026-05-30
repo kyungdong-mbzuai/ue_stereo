@@ -27,6 +27,7 @@ void USimGameViewportClient::Init(FWorldContext& WorldContext, UGameInstance* Ow
 
 	LoadStereoWindowConfig();
 
+	bCustomStereo = true;
 	EnsureStereoDevice();
 }
 
@@ -220,6 +221,12 @@ void USimGameViewportClient::Draw(FViewport* InViewport, FCanvas* SceneCanvas)
 
 	// Render scene first so the viewport render target is populated.
 	Super::Draw(InViewport, SceneCanvas);
+
+	// Auto-open StereoWindow on first valid draw.
+	if (!StereoWindow.IsValid() || !StereoWindow->IsOpen())
+	{
+		OpenStereoWindow();
+	}
 
 	// Forward the scene render texture to the stereo output window when open.
 	if (StereoWindow.IsValid() && StereoWindow->IsOpen())
