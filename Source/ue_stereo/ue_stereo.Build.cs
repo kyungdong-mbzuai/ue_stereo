@@ -8,9 +8,22 @@ public class ue_stereo : ModuleRules
 	{
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 	
-		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "EnhancedInput" });
+		PublicDependencyModuleNames.AddRange(new string[] {
+			"Core", 
+			"CoreUObject", 
+			"Engine", 
+			"InputCore", 
+			"EnhancedInput",
+			"XRBase",
+            "HeadMountedDisplay",
+            "Slate",
+            "SlateCore",
+            "RHI",
+            "RenderCore"
+        });
 
-		PrivateDependencyModuleNames.AddRange(new string[] { "Slate", "SlateCore", "RHI", "RenderCore", "HeadMountedDisplay" });
+        PrivateDependencyModuleNames.AddRange(new string[] {
+		});
 		
 		// Uncomment if you are using online features
 		// PrivateDependencyModuleNames.Add("OnlineSubsystem");
