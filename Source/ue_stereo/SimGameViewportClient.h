@@ -34,6 +34,15 @@ public:
 	// Toggle stereo output window open/closed.
 	void ToggleStereoWindow();
 
+	// Switch to custom (FSimStereoRendering) stereo device.
+	void SetVRMode_CustomStereo();
+
+	// Switch to OpenXR HMD stereo device.
+	void SetVRMode_OpenXR();
+
+	// Toggle between CustomStereo and OpenXR VR modes.
+	void ToggleVRMode();
+
 protected:
 	virtual void BeginDestroy() override;
 

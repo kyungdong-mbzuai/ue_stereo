@@ -223,3 +223,55 @@ void USimGameViewportClient::Draw(FViewport* InViewport, FCanvas* SceneCanvas)
 		}
 	}
 }
+
+void USimGameViewportClient::SetVRMode_CustomStereo()
+{
+	if (!GEngine)
+	{
+		return;
+	}
+
+	SimStereoRenderingDevice = MakeShareable(new FSimStereoRendering());
+	GEngine->StereoRenderingDevice = SimStereoRenderingDevice;
+	GEngine->StereoRenderingDevice->EnableStereo(true);
+	EngineShowFlags.SetStereoRendering(true);
+	bCustomStereo = true;
+
+	UE_LOG(LogTemp, Warning, TEXT("[SimStereo] SetVRMode_CustomStereo - FSimStereoRendering installed"));
+	if (GEngine)
+	{
+		GEngine->AddOnScreenDebugMessage(10, 3.0f, FColor::Yellow, TEXT("[VR Mode] Custom Stereo"));
+	}
+}
+
+void USimGameViewportClient::SetVRMode_OpenXR()
+{
+	if (!GEngine)
+	{
+		return;
+	}
+
+	// Release custom device so the engine falls back to the OpenXR HMD device.
+	GEngine->StereoRenderingDevice = nullptr;
+	SimStereoRenderingDevice.Reset();
+	EngineShowFlags.SetStereoRendering(true);
+	bCustomStereo = false;
+
+	UE_LOG(LogTemp, Warning, TEXT("[SimStereo] SetVRMode_OpenXR - Switched to OpenXR HMD device"));
+	if (GEngine)
+	{
+		GEngine->AddOnScreenDebugMessage(10, 3.0f, FColor::Green, TEXT("[VR Mode] OpenXR HMD"));
+	}
+}
+
+void USimGameViewportClient::ToggleVRMode()
+{
+	if (bCustomStereo)
+	{
+		SetVRMode_OpenXR();
+	}
+	else
+	{
+		SetVRMode_CustomStereo();
+	}
+}

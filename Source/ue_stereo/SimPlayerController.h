@@ -32,6 +32,7 @@ private:
 	void OnIPDIncrease();
 	void OnIPDDecrease();
 	void OnToggleStereoWindow();
+	void OnToggleVRMode();
 
 	bool bMouseCaptured = false;
 	FVector2D LastMousePos = FVector2D::ZeroVector;

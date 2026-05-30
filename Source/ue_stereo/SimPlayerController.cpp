@@ -37,6 +37,7 @@ void ASimPlayerController::SetupInputComponent()
 		InputComponent->BindKey(EKeys::Hyphen, IE_Pressed, this, &ASimPlayerController::OnIPDDecrease);
 		InputComponent->BindKey(EKeys::Hyphen, IE_Repeat, this, &ASimPlayerController::OnIPDDecrease);
 		InputComponent->BindKey(EKeys::S, IE_Pressed, this, &ASimPlayerController::OnToggleStereoWindow);
+		InputComponent->BindKey(EKeys::F8, IE_Pressed, this, &ASimPlayerController::OnToggleVRMode);
 	}
 }
 
@@ -57,6 +58,16 @@ void ASimPlayerController::OnToggleStereoWindow()
 	{
 		VPC->ToggleStereoWindow();
 	}
+}
+
+void ASimPlayerController::OnToggleVRMode()
+{
+	USimGameViewportClient* VPC = Cast<USimGameViewportClient>(GetWorld() ? GetWorld()->GetGameViewport() : nullptr);
+	if (!VPC)
+	{
+		return;
+	}
+	VPC->ToggleVRMode();
 }
 
 void ASimPlayerController::OnIPDIncrease()
