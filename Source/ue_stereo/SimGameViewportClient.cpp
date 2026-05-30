@@ -1,6 +1,7 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "SimGameViewportClient.h"
+#include "SimLocalPlayer.h"
 #include "Engine/Engine.h"
 #include "Slate/SceneViewport.h"
 #include "Widgets/SViewport.h"
@@ -84,7 +85,7 @@ bool USimGameViewportClient::GetHMDHeadPose(FQuat& OutOrientation, FVector& OutP
 
 void USimGameViewportClient::EnsureStereoDevice()
 {
-	if (! bCustomStereo)
+	if (!bCustomStereo)
 	{
 		return;
 	}
@@ -95,20 +96,23 @@ void USimGameViewportClient::EnsureStereoDevice()
 		return;
 	}
 
-	if (GEngine->StereoRenderingDevice != SimStereoRenderingDevice)
+	// Create standalone SimStereoRendering if not yet created.
+	// GEngine->StereoRenderingDevice is intentionally NOT replaced so OpenXR XRSystem stays active.
+	if (!SimStereoRenderingDevice.IsValid())
 	{
 		SimStereoRenderingDevice = MakeShareable(new FSimStereoRendering());
-		GEngine->StereoRenderingDevice = SimStereoRenderingDevice;
-		UE_LOG(LogTemp, Warning, TEXT("[SimStereo] EnsureStereoDevice - FSimStereoRendering installed"));
-	}
-	else
-	{
-		UE_LOG(LogTemp, Warning, TEXT("[SimStereo] EnsureStereoDevice - StereoRenderingDevice already valid, skipping install"));
+		SimStereoRenderingDevice->EnableStereo(true);
+		UE_LOG(LogTemp, Warning, TEXT("[SimStereo] EnsureStereoDevice - standalone FSimStereoRendering created (GEngine device NOT replaced)"));
 	}
 
-	GEngine->StereoRenderingDevice->EnableStereo(true);
-	UE_LOG(LogTemp, Warning, TEXT("[SimStereo] EnsureStereoDevice - EnableStereo(true) called. IsStereoEnabled=%s"),
-		GEngine->StereoRenderingDevice->IsStereoEnabled() ? TEXT("YES") : TEXT("NO"));
+	// Share the standalone device with SimLocalPlayer so GetProjectionData can use AdjustViewRect.
+	ULocalPlayer* LP = GEngine->GetFirstGamePlayer(this);
+	USimLocalPlayer* SimPlayer = Cast<USimLocalPlayer>(LP);
+	if (SimPlayer && SimPlayer->CustomStereoDevice != SimStereoRenderingDevice)
+	{
+		SimPlayer->CustomStereoDevice = SimStereoRenderingDevice;
+		UE_LOG(LogTemp, Warning, TEXT("[SimStereo] EnsureStereoDevice - CustomStereoDevice shared with SimLocalPlayer"));
+	}
 
 	EngineShowFlags.SetStereoRendering(true);
 }
@@ -161,11 +165,24 @@ void USimGameViewportClient::Draw(FViewport* InViewport, FCanvas* SceneCanvas)
 	EnsureStereoDevice();
 
 	FVector CurrentHMDPosition;
-	FQuat CurrentHMDOrientation;
-	GetHMDHeadPose(CurrentHMDOrientation, CurrentHMDPosition);
+	FQuat   CurrentHMDOrientation;
+	const bool bHasPose = GetHMDHeadPose(CurrentHMDOrientation, CurrentHMDPosition);
 
 	UE_LOG(LogTemp, Warning, TEXT("[SimStereo] GetHMDHeadPose - Orientation=%s Position=%s"),
 		*CurrentHMDOrientation.ToString(), *CurrentHMDPosition.ToString());
+
+	// Inject OpenXR HMD pose into SimLocalPlayer so GetProjectionData uses it each frame.
+	if (bHasPose && bCustomStereo)
+	{
+		ULocalPlayer* LP = GEngine ? GEngine->GetFirstGamePlayer(this) : nullptr;
+		USimLocalPlayer* SimPlayer = Cast<USimLocalPlayer>(LP);
+		if (SimPlayer)
+		{
+			SimPlayer->BaseLocation      = CurrentHMDPosition;
+			SimPlayer->BaseRotation      = CurrentHMDOrientation.Rotator();
+			SimPlayer->bBaseTransformSet = true;
+		}
+	}
 
 	if (GEngine)
 	{
@@ -231,17 +248,22 @@ void USimGameViewportClient::SetVRMode_CustomStereo()
 		return;
 	}
 
+	// Create standalone device. GEngine->StereoRenderingDevice is NOT replaced.
 	SimStereoRenderingDevice = MakeShareable(new FSimStereoRendering());
-	GEngine->StereoRenderingDevice = SimStereoRenderingDevice;
-	GEngine->StereoRenderingDevice->EnableStereo(true);
-	EngineShowFlags.SetStereoRendering(true);
+	SimStereoRenderingDevice->EnableStereo(true);
 	bCustomStereo = true;
+	EngineShowFlags.SetStereoRendering(true);
 
-	UE_LOG(LogTemp, Warning, TEXT("[SimStereo] SetVRMode_CustomStereo - FSimStereoRendering installed"));
-	if (GEngine)
+	// Share immediately with SimLocalPlayer.
+	ULocalPlayer* LP = GEngine->GetFirstGamePlayer(this);
+	USimLocalPlayer* SimPlayer = Cast<USimLocalPlayer>(LP);
+	if (SimPlayer)
 	{
-		GEngine->AddOnScreenDebugMessage(10, 3.0f, FColor::Yellow, TEXT("[VR Mode] Custom Stereo"));
+		SimPlayer->CustomStereoDevice = SimStereoRenderingDevice;
 	}
+
+	UE_LOG(LogTemp, Warning, TEXT("[SimStereo] SetVRMode_CustomStereo - standalone FSimStereoRendering created (OpenXR pose + SimRendering split)"));
+	GEngine->AddOnScreenDebugMessage(10, 3.0f, FColor::Yellow, TEXT("[VR Mode] Custom Stereo (OpenXR pose + SimRendering)"));
 }
 
 void USimGameViewportClient::SetVRMode_OpenXR()
@@ -251,17 +273,20 @@ void USimGameViewportClient::SetVRMode_OpenXR()
 		return;
 	}
 
-	// Release custom device so the engine falls back to the OpenXR HMD device.
-	GEngine->StereoRenderingDevice = nullptr;
+	// Clear standalone device and SimLocalPlayer reference.
+	ULocalPlayer* LP = GEngine->GetFirstGamePlayer(this);
+	USimLocalPlayer* SimPlayer = Cast<USimLocalPlayer>(LP);
+	if (SimPlayer)
+	{
+		SimPlayer->CustomStereoDevice.Reset();
+		SimPlayer->bBaseTransformSet = false;
+	}
+
 	SimStereoRenderingDevice.Reset();
-	EngineShowFlags.SetStereoRendering(true);
 	bCustomStereo = false;
 
-	UE_LOG(LogTemp, Warning, TEXT("[SimStereo] SetVRMode_OpenXR - Switched to OpenXR HMD device"));
-	if (GEngine)
-	{
-		GEngine->AddOnScreenDebugMessage(10, 3.0f, FColor::Green, TEXT("[VR Mode] OpenXR HMD"));
-	}
+	UE_LOG(LogTemp, Warning, TEXT("[SimStereo] SetVRMode_OpenXR - Reverted to full OpenXR control"));
+	GEngine->AddOnScreenDebugMessage(10, 3.0f, FColor::Green, TEXT("[VR Mode] OpenXR HMD"));
 }
 
 void USimGameViewportClient::ToggleVRMode()

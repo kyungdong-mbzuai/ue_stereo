@@ -10,14 +10,16 @@ bool USimLocalPlayer::GetProjectionData(FViewport* Viewport, FSceneViewProjectio
 	// 1. Call Super with INDEX_NONE (mono) to get the camera's correct base transform
 	//    and its natural symmetric projection matrix (derived from actual camera FOV).
 	//    This avoids IStereoRendering::GetStereoProjectionMatrix() replacing the projection.
-	bool bSuccess = Super::GetProjectionData(Viewport, ProjectionData, INDEX_NONE);
+	const bool bSuccess = Super::GetProjectionData(Viewport, ProjectionData, INDEX_NONE);
 
 	if (!bSuccess)
 	{
 		return false;
 	}
 
-	if (!GEngine || !GEngine->StereoRenderingDevice.IsValid() || !GEngine->StereoRenderingDevice->IsStereoEnabled())
+	// Use standalone CustomStereoDevice instead of GEngine->StereoRenderingDevice.
+	// This keeps OpenXR active as GEngine's device while we control the split here.
+	if (!CustomStereoDevice.IsValid() || !CustomStereoDevice->IsStereoEnabled())
 	{
 		return bSuccess;
 	}
@@ -27,13 +29,13 @@ bool USimLocalPlayer::GetProjectionData(FViewport* Viewport, FSceneViewProjectio
 		return bSuccess;
 	}
 
-	// 2. Split the viewport rect for side-by-side stereo.
+	// 2. Split the viewport rect for side-by-side stereo via our standalone device.
 	const FIntRect BaseRect = ProjectionData.GetViewRect();
-	int32 X    = BaseRect.Min.X;
-	int32 Y    = BaseRect.Min.Y;
+	int32  X     = BaseRect.Min.X;
+	int32  Y     = BaseRect.Min.Y;
 	uint32 SizeX = (uint32)BaseRect.Width();
 	uint32 SizeY = (uint32)BaseRect.Height();
-	GEngine->StereoRenderingDevice->AdjustViewRect(StereoViewIndex, X, Y, SizeX, SizeY);
+	CustomStereoDevice->AdjustViewRect(StereoViewIndex, X, Y, SizeX, SizeY);
 	ProjectionData.SetViewRectangle(FIntRect(X, Y, X + (int32)SizeX, Y + (int32)SizeY));
 
 	// Fix projection matrix aspect ratio:
@@ -47,7 +49,7 @@ bool USimLocalPlayer::GetProjectionData(FViewport* Viewport, FSceneViewProjectio
 		StereoViewIndex, X, Y, X + (int32)SizeX, Y + (int32)SizeY,
 		bBaseTransformSet ? TEXT("YES") : TEXT("NO"));
 
-	// 3. Apply IPD eye offset once Tick has set a valid camera transform.
+	// 3. Apply IPD eye offset once a valid HMD/camera transform has been set.
 	//    The ProjectionMatrix remains the camera's natural symmetric matrix.
 	if (!bBaseTransformSet)
 	{
