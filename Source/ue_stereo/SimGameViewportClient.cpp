@@ -268,11 +268,16 @@ void USimGameViewportClient::SetVRMode_CustomStereo()
 		return;
 	}
 
-	// Create standalone device. GEngine->StereoRenderingDevice is NOT replaced.
 	SimStereoRenderingDevice = MakeShareable(new FSimStereoRendering());
 	SimStereoRenderingDevice->EnableStereo(true);
 	bCustomStereo = true;
 	EngineShowFlags.SetStereoRendering(true);
+
+	// Replace GEngine->StereoRenderingDevice so the engine allocates a viewport
+	// render target and populates it each frame — required for GetRenderTargetTexture()
+	// to return a valid texture in standalone (no OpenXR) builds.
+	OriginalStereoRenderingDevice = GEngine->StereoRenderingDevice;
+	GEngine->StereoRenderingDevice = SimStereoRenderingDevice;
 
 	// Share immediately with SimLocalPlayer.
 	ULocalPlayer* LP = GEngine->GetFirstGamePlayer(this);
@@ -282,8 +287,8 @@ void USimGameViewportClient::SetVRMode_CustomStereo()
 		SimPlayer->CustomStereoDevice = SimStereoRenderingDevice;
 	}
 
-	UE_LOG(LogTemp, Warning, TEXT("[SimStereo] SetVRMode_CustomStereo - standalone FSimStereoRendering created (OpenXR pose + SimRendering split)"));
-	GEngine->AddOnScreenDebugMessage(10, 3.0f, FColor::Yellow, TEXT("[VR Mode] Custom Stereo (OpenXR pose + SimRendering)"));
+	UE_LOG(LogTemp, Warning, TEXT("[SimStereo] SetVRMode_CustomStereo - FSimStereoRendering set as GEngine->StereoRenderingDevice"));
+	GEngine->AddOnScreenDebugMessage(10, 3.0f, FColor::Yellow, TEXT("[VR Mode] Custom Stereo"));
 }
 
 void USimGameViewportClient::SetVRMode_OpenXR()
@@ -292,6 +297,10 @@ void USimGameViewportClient::SetVRMode_OpenXR()
 	{
 		return;
 	}
+
+	// Restore the original StereoRenderingDevice (OpenXR or null).
+	GEngine->StereoRenderingDevice = OriginalStereoRenderingDevice;
+	OriginalStereoRenderingDevice.Reset();
 
 	// Clear standalone device and SimLocalPlayer reference.
 	ULocalPlayer* LP = GEngine->GetFirstGamePlayer(this);
@@ -304,8 +313,9 @@ void USimGameViewportClient::SetVRMode_OpenXR()
 
 	SimStereoRenderingDevice.Reset();
 	bCustomStereo = false;
+	EngineShowFlags.SetStereoRendering(false);
 
-	UE_LOG(LogTemp, Warning, TEXT("[SimStereo] SetVRMode_OpenXR - Reverted to full OpenXR control"));
+	UE_LOG(LogTemp, Warning, TEXT("[SimStereo] SetVRMode_OpenXR - GEngine->StereoRenderingDevice restored"));
 	GEngine->AddOnScreenDebugMessage(10, 3.0f, FColor::Green, TEXT("[VR Mode] OpenXR HMD"));
 }
 

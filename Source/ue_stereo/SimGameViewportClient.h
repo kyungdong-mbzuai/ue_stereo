@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Engine/GameViewportClient.h"
+#include "StereoRendering.h"
 #include "SimStereoRendering.h"
 #include "SStereoWindow.h"
 #include "SimGameViewportClient.generated.h"
@@ -50,9 +51,15 @@ private:
 	void EnsureCustomStereo();
 	void LoadStereoWindowConfig();
 	
-	bool bCustomStereo = false;
-	bool bViewportWindowResizable  = false;
+	bool bCustomStereo              = false;
+	bool bStereoEnabledOnViewport   = false;
+	bool bStereoDisabledOnFirstDraw = false;
+	bool bViewportWindowResizable   = false;
 	TSharedPtr<FSimStereoRendering, ESPMode::ThreadSafe> SimStereoRenderingDevice;
+
+	// Original GEngine->StereoRenderingDevice saved before we replace it,
+	// restored when switching back to OpenXR mode.
+	TSharedPtr<class IStereoRendering, ESPMode::ThreadSafe> OriginalStereoRenderingDevice;
 
 	// Stereo output window (separate OS window receiving scene render texture).
 	TSharedPtr<SStereoWindow> StereoWindow;
