@@ -138,6 +138,8 @@ void USimGameViewportClient::OpenStereoWindow()
 	Settings.Height    = StereoWindowHeight;
 	StereoWindow->Open(Settings);
 
+	SetVRMode_CustomStereo();
+
 	UE_LOG(LogTemp, Warning, TEXT("[SimStereo] StereoWindow opened - Monitor=%d Size=%dx%d"),
 		Settings.MonitorId, Settings.Width, Settings.Height);
 }
@@ -147,6 +149,7 @@ void USimGameViewportClient::CloseStereoWindow()
 	if (StereoWindow.IsValid() && StereoWindow->IsOpen())
 	{
 		StereoWindow->Close();
+		SetVRMode_OpenXR();
 		UE_LOG(LogTemp, Log, TEXT("[SimStereo] StereoWindow closed"));
 	}
 }
