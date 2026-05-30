@@ -47,7 +47,12 @@ void ASimPlayerController::BeginPlay()
 		// Set IPD via HMD interface (OpenXR backend implements this)
 		HMD->SetInterpupillaryDistance(0.0f);
 
-		GEngine->StereoRenderingDevice->EnableStereo(true);
+
+		// EnableStereo(true) 없이 head tracking만 강제 활성화
+		GEngine->XRSystem->SetHeadTrackingEnforced(true);
+
+		
+		//GEngine->StereoRenderingDevice->EnableStereo(true);
 
 	}
 
