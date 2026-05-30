@@ -27,8 +27,8 @@ void USimGameViewportClient::Init(FWorldContext& WorldContext, UGameInstance* Ow
 
 	LoadStereoWindowConfig();
 
-	bCustomStereo = true;
-	EnsureStereoDevice();
+	//bCustomStereo = true;
+	//EnsureStereoDevice();
 }
 
 void USimGameViewportClient::BeginDestroy()
