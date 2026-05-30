@@ -92,7 +92,7 @@ void SStereoWindow::Open(const FStereoWindowSettings& InSettings)
 		.SizingRule(ESizingRule::FixedSize)
 		.bDragAnywhere(false)
 		.HasCloseButton(false)
-		.IsTopmostWindow(true)
+		.IsTopmostWindow(false)
 		.CreateTitleBar(false)
 		.ShouldPreserveAspectRatio(false)
 		[

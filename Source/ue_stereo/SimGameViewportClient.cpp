@@ -49,10 +49,30 @@ void USimGameViewportClient::BeginDestroy()
 
 void USimGameViewportClient::LoadStereoWindowConfig()
 {
-	const FString ConfigPath = FPaths::ProjectDir() / TEXT("Config/Config.ini");
-	if (!FPaths::FileExists(ConfigPath))
+	// In a packaged/standalone build FPaths::ProjectDir() points to the directory
+	// containing the .uproject (or the game root next to the Binaries folder).
+	// Prefer a Config.ini sitting next to the executable so operators can edit it
+	// without touching the packaged content.  Fall back to the project Config dir
+	// so the editor PIE workflow continues to work unchanged.
+	const FString ExeDir        = FPaths::GetPath(FPlatformProcess::ExecutablePath());
+	const FString ExeSideConfig = ExeDir / TEXT("Config/Config.ini");
+	const FString ProjectConfig = FPaths::ProjectDir() / TEXT("Config/Config.ini");
+
+	FString ConfigPath;
+	if (FPaths::FileExists(ExeSideConfig))
 	{
-		UE_LOG(LogTemp, Warning, TEXT("[SimStereo] Config.ini not found at %s, using defaults"), *ConfigPath);
+		ConfigPath = ExeSideConfig;
+		UE_LOG(LogTemp, Warning, TEXT("[SimStereo] Using exe-side Config.ini: %s"), *ConfigPath);
+	}
+	else if (FPaths::FileExists(ProjectConfig))
+	{
+		ConfigPath = ProjectConfig;
+		UE_LOG(LogTemp, Warning, TEXT("[SimStereo] Using project Config.ini: %s"), *ConfigPath);
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[SimStereo] Config.ini not found (checked %s and %s), using defaults"),
+			*ExeSideConfig, *ProjectConfig);
 		return;
 	}
 
