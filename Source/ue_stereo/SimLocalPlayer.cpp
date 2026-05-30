@@ -5,6 +5,12 @@
 #include "StereoRendering.h"
 #include "SceneView.h"
 
+USimLocalPlayer::USimLocalPlayer(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
+{
+	IPD = 0.0f;
+}
+
 bool USimLocalPlayer::GetProjectionData(FViewport* Viewport, FSceneViewProjectionData& ProjectionData, int32 StereoViewIndex) const
 {
 	// 1. Call Super with INDEX_NONE (mono) to get the camera's correct base transform

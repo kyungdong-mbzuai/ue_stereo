@@ -42,9 +42,13 @@ void ASimPlayerController::BeginPlay()
 
 	if (GEngine->XRSystem.IsValid() && GEngine->XRSystem->GetHMDDevice())
 	{
-		GEngine->XRSystem->GetHMDDevice()->EnableHMD(true);
-		
+		IHeadMountedDisplay* HMD = GEngine->XRSystem->GetHMDDevice();
+		HMD->EnableHMD(true);
+		// Set IPD via HMD interface (OpenXR backend implements this)
+		HMD->SetInterpupillaryDistance(0.0f);
+
 		GEngine->StereoRenderingDevice->EnableStereo(true);
+
 	}
 
 	// Use floor-level tracking origin for accurate coordinates.

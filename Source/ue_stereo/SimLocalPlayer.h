@@ -19,6 +19,8 @@ class UE_STEREO_API USimLocalPlayer : public ULocalPlayer
 	GENERATED_BODY()
 
 public:
+	USimLocalPlayer(const FObjectInitializer& ObjectInitializer);
+
 	/**
 	 * Override projection data to apply custom eye offset instead of HMD-driven offset.
 	 * Uses BaseLocation / BaseRotation + IPD to build symmetric stereo view origins.
