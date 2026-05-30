@@ -8,6 +8,7 @@
 #include "Framework/Application/SlateApplication.h"
 #include "Engine/Engine.h"
 #include "HeadMountedDisplayFunctionLibrary.h"
+#include "IHeadMountedDisplay.h"
 #include "IXRTrackingSystem.h"
 
 ASimPlayerController::ASimPlayerController()
@@ -29,14 +30,21 @@ void ASimPlayerController::BeginPlay()
 	// STANDALONE GAME MODE:
 	// 
 
-
-	// Enable HMD to receive tracking data.
-	UHeadMountedDisplayFunctionLibrary::EnableHMD(true);
-
 	// Verify that the XR system was initialized by the engine.
 	if (!GEngine || !GEngine->XRSystem.IsValid())
 	{
 		return;
+	}
+
+
+	// Enable HMD to receive tracking data.
+	//UHeadMountedDisplayFunctionLibrary::EnableHMD(true);
+
+	if (GEngine->XRSystem.IsValid() && GEngine->XRSystem->GetHMDDevice())
+	{
+		GEngine->XRSystem->GetHMDDevice()->EnableHMD(true);
+		
+		GEngine->StereoRenderingDevice->EnableStereo(true);
 	}
 
 	// Use floor-level tracking origin for accurate coordinates.
@@ -49,7 +57,7 @@ void ASimPlayerController::BeginPlay()
 	
 		if (GEngine->StereoRenderingDevice.IsValid())
 		{
-			GEngine->StereoRenderingDevice->EnableStereo(false);	
+			//GEngine->StereoRenderingDevice->EnableStereo(false);	
 		}
 	}
 	if (1)
