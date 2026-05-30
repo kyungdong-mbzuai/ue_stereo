@@ -5,6 +5,8 @@
 #include "Slate/SceneViewport.h"
 #include "Widgets/SViewport.h"
 #include "RenderingThread.h"
+#include "IXRTrackingSystem.h"
+#include "IHeadMountedDisplay.h"
 
 #if PLATFORM_WINDOWS
 #include "Windows/AllowWindowsPlatformTypes.h"
@@ -22,8 +24,9 @@ void USimGameViewportClient::Init(FWorldContext& WorldContext, UGameInstance* Ow
 	UE_LOG(LogTemp, Warning, TEXT("[SimStereo] ViewportClient::Init - StereoRenderingDevice valid: %s"),
 		GEngine && GEngine->StereoRenderingDevice.IsValid() ? TEXT("YES") : TEXT("NO"));
 
-	EnsureStereoDevice();
 	LoadStereoWindowConfig();
+
+	EnsureStereoDevice();
 }
 
 void USimGameViewportClient::BeginDestroy()
@@ -57,15 +60,42 @@ void USimGameViewportClient::LoadStereoWindowConfig()
 		StereoWindowMonitorId, StereoWindowWidth, StereoWindowHeight);
 }
 
+bool USimGameViewportClient::GetHMDHeadPose(FQuat& OutOrientation, FVector& OutPosition) const
+{
+	if (!GEngine || !GEngine->XRSystem.IsValid())
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[SimStereo] GetHMDHeadPose - XR system not available"));
+		return false;
+	}
+
+	const bool bSuccess = GEngine->XRSystem->GetCurrentPose(
+		IXRTrackingSystem::HMDDeviceId,
+		OutOrientation,
+		OutPosition);
+
+	if (!bSuccess)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[SimStereo] GetHMDHeadPose - GetCurrentPose failed"));
+		return bSuccess;
+	}
+
+	return bSuccess;
+}
+
 void USimGameViewportClient::EnsureStereoDevice()
 {
+	if (! bCustomStereo)
+	{
+		return;
+	}
+
 	if (!GEngine)
 	{
 		UE_LOG(LogTemp, Warning, TEXT("[SimStereo] EnsureStereoDevice - GEngine is null"));
 		return;
 	}
 
-	if (!GEngine->StereoRenderingDevice.IsValid())
+	if (GEngine->StereoRenderingDevice != SimStereoRenderingDevice)
 	{
 		SimStereoRenderingDevice = MakeShareable(new FSimStereoRendering());
 		GEngine->StereoRenderingDevice = SimStereoRenderingDevice;
@@ -129,6 +159,24 @@ void USimGameViewportClient::ToggleStereoWindow()
 void USimGameViewportClient::Draw(FViewport* InViewport, FCanvas* SceneCanvas)
 {
 	EnsureStereoDevice();
+
+	FVector CurrentHMDPosition;
+	FQuat CurrentHMDOrientation;
+	GetHMDHeadPose(CurrentHMDOrientation, CurrentHMDPosition);
+
+	UE_LOG(LogTemp, Warning, TEXT("[SimStereo] GetHMDHeadPose - Orientation=%s Position=%s"),
+		*CurrentHMDOrientation.ToString(), *CurrentHMDPosition.ToString());
+
+	if (GEngine)
+	{
+		const FRotator HMDRotator = CurrentHMDOrientation.Rotator();
+		GEngine->AddOnScreenDebugMessage(1, 0.0f, FColor::Cyan,
+			FString::Printf(TEXT("[HMD] Orientation: P=%.2f Y=%.2f R=%.2f"),
+				HMDRotator.Pitch, HMDRotator.Yaw, HMDRotator.Roll));
+		GEngine->AddOnScreenDebugMessage(2, 0.0f, FColor::Green,
+			FString::Printf(TEXT("[HMD] Position: X=%.2f Y=%.2f Z=%.2f"),
+				CurrentHMDPosition.X, CurrentHMDPosition.Y, CurrentHMDPosition.Z));
+	}
 
 	TSharedPtr<SViewport> ViewportWidget = GetGameViewportWidget();
 	if (ViewportWidget.IsValid() && !ViewportWidget->IsStereoRenderingAllowed())

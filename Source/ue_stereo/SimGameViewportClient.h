@@ -21,6 +21,10 @@ public:
 	virtual void Init(struct FWorldContext& WorldContext, UGameInstance* OwningGameInstance, bool bCreateNewAudioDevice = true) override;
 	virtual void Draw(FViewport* InViewport, FCanvas* SceneCanvas) override;
 
+	// Retrieve the current HMD head pose via OpenXR.
+	// Returns false when no XR tracking system is available.
+	bool GetHMDHeadPose(FQuat& OutOrientation, FVector& OutPosition) const;
+
 	// Open the stereo output window on the configured monitor.
 	void OpenStereoWindow();
 
@@ -36,7 +40,8 @@ protected:
 private:
 	void EnsureStereoDevice();
 	void LoadStereoWindowConfig();
-
+	
+	bool bCustomStereo = false;
 	bool bStereoEnabledOnViewport = false;
 	bool bViewportWindowResizable  = false;
 	TSharedPtr<FSimStereoRendering, ESPMode::ThreadSafe> SimStereoRenderingDevice;
