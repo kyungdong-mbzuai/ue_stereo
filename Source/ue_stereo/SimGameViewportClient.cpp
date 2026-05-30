@@ -188,15 +188,6 @@ void USimGameViewportClient::ToggleStereoWindow()
 
 void USimGameViewportClient::Draw(FViewport* InViewport, FCanvas* SceneCanvas)
 {
-	bool bNoSpectator = false;
-
-	IXRTrackingSystem* XRSystem = GEngine ? GEngine->XRSystem.Get() : nullptr;
-	if (bNoSpectator) {
-		//ESpectatorScreenMode Mode = ESpectatorScreenMode::SingleEyeCroppedToFill;
-		ESpectatorScreenMode Mode = ESpectatorScreenMode::Disabled;
-		UHeadMountedDisplayFunctionLibrary::SetSpectatorScreenMode(Mode);
-	}
-
 	EnsureCustomStereo();
 
 	FVector CurrentHMDPosition;

@@ -7,6 +7,8 @@
 #include "Engine/LocalPlayer.h"
 #include "Framework/Application/SlateApplication.h"
 #include "Engine/Engine.h"
+#include "HeadMountedDisplayFunctionLibrary.h"
+#include "IXRTrackingSystem.h"
 
 ASimPlayerController::ASimPlayerController()
 {
@@ -22,6 +24,40 @@ void ASimPlayerController::BeginPlay()
 {
 	Super::BeginPlay();
 	SetMouseFree();
+
+	//
+	// STANDALONE GAME MODE:
+	// 
+
+
+	// Enable HMD to receive tracking data.
+	UHeadMountedDisplayFunctionLibrary::EnableHMD(true);
+
+	// Verify that the XR system was initialized by the engine.
+	if (!GEngine || !GEngine->XRSystem.IsValid())
+	{
+		return;
+	}
+
+	// Use floor-level tracking origin for accurate coordinates.
+	UHeadMountedDisplayFunctionLibrary::SetTrackingOrigin(EHMDTrackingOrigin::LocalFloor);
+
+	// Disable stereo rendering so the main viewport is not split.
+	if (1)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[SimStereo] PlayerController::BeginPlay - Disabling stereo rendering on main viewport"));
+	
+		if (GEngine->StereoRenderingDevice.IsValid())
+		{
+			GEngine->StereoRenderingDevice->EnableStereo(false);	
+		}
+	}
+	if (1)
+	{
+		//ESpectatorScreenMode Mode = ESpectatorScreenMode::SingleEyeCroppedToFill;
+		ESpectatorScreenMode Mode = ESpectatorScreenMode::Disabled;
+		UHeadMountedDisplayFunctionLibrary::SetSpectatorScreenMode(Mode);
+	}
 }
 
 void ASimPlayerController::SetupInputComponent()
