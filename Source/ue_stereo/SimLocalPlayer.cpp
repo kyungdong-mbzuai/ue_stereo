@@ -51,9 +51,9 @@ bool USimLocalPlayer::GetProjectionData(FViewport* Viewport, FSceneViewProjectio
 	FMatrix& PM = ProjectionData.ProjectionMatrix;
 	PM.M[0][0] *= 2.0f;
 
-	UE_LOG(LogTemp, Warning, TEXT("[SimStereo] GetProjectionData eye=%d rect=(%d,%d,%d,%d) bBaseSet=%s"),
-		StereoViewIndex, X, Y, X + (int32)SizeX, Y + (int32)SizeY,
-		bBaseTransformSet ? TEXT("YES") : TEXT("NO"));
+	//UE_LOG(LogTemp, Warning, TEXT("[SimStereo] GetProjectionData eye=%d rect=(%d,%d,%d,%d) bBaseSet=%s"),
+	//	StereoViewIndex, X, Y, X + (int32)SizeX, Y + (int32)SizeY,
+	//	bBaseTransformSet ? TEXT("YES") : TEXT("NO"));
 
 	// 3. Apply IPD eye offset once a valid HMD/camera transform has been set.
 	//    The ProjectionMatrix remains the camera's natural symmetric matrix.

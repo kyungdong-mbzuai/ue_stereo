@@ -194,8 +194,8 @@ void USimGameViewportClient::Draw(FViewport* InViewport, FCanvas* SceneCanvas)
 	UHeadMountedDisplayFunctionLibrary::GetOrientationAndPosition(HeadRotation, HeadLocation);
 
 
-	UE_LOG(LogTemp, Warning, TEXT("[SimStereo] GetHMDHeadPose - Orientation=%s Position=%s"),
-		*HeadRotation.ToString(), *HeadLocation.ToString());
+	//UE_LOG(LogTemp, Warning, TEXT("[SimStereo] GetHMDHeadPose - Orientation=%s Position=%s"),
+	//	*HeadRotation.ToString(), *HeadLocation.ToString());
 
 	// Inject OpenXR HMD pose into SimLocalPlayer so GetProjectionData uses it each frame.
 	if (bCustomStereo)
