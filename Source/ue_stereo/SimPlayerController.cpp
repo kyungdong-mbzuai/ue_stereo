@@ -46,13 +46,13 @@ void ASimPlayerController::BeginPlay()
 	UHeadMountedDisplayFunctionLibrary::SetTrackingOrigin(EHMDTrackingOrigin::LocalFloor);
 
 	// Disable stereo rendering so the main viewport is not split.
-	if (0)
+	if (1)
 	{
 		UE_LOG(LogTemp, Warning, TEXT("[SimStereo] PlayerController::BeginPlay - Disabling stereo rendering on main viewport"));
 	
 		if (GEngine->StereoRenderingDevice.IsValid())
 		{
-			//GEngine->StereoRenderingDevice->EnableStereo(false);	
+			GEngine->StereoRenderingDevice->EnableStereo(true);	
 		}
 	}
 	if (0)
