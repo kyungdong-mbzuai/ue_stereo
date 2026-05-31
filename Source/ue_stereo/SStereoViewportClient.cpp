@@ -13,14 +13,13 @@
 
 void USStereoViewportClient::InitStereoRendering(TSharedPtr<SViewport> InViewportWidget)
 {
-	// Do NOT touch GEngine->StereoRenderingDevice.
-	// Stereo for this window is handled entirely inside Draw().
-	if (InViewportWidget.IsValid() && !InViewportWidget->IsStereoRenderingAllowed())
-	{
-		InViewportWidget->EnableStereoRendering(true);
-	}
-
-	UE_LOG(LogTemp, Log, TEXT("[SStereoViewportClient] InitStereoRendering complete"));
+	// Do NOT call EnableStereoRendering(true) here.
+	// Doing so registers this SViewport with GEngine->StereoRenderingDevice,
+	// which causes the HMD device to resize the VR render buffer every frame
+	// (e.g. 3840x1080 -> 3648x1968), overflowing our ViewRects and altering
+	// the render target format — causing color/shadow differences vs the main viewport.
+	// Stereo is handled entirely inside Draw() via FSceneViewInitOptions.StereoPass.
+	UE_LOG(LogTemp, Log, TEXT("[SStereoViewportClient] InitStereoRendering complete (manual stereo, no SViewport registration)"));
 }
 
 void USStereoViewportClient::SetCameraTransform(const FVector& Location, const FRotator& Rotation)
@@ -79,8 +78,22 @@ static FSceneView* AddEyeView(
 		? EStereoscopicPass::eSSP_PRIMARY
 		: EStereoscopicPass::eSSP_SECONDARY;
 
+	// Apply camera post-process settings so tone-mapping, bloom, etc. match the main viewport.
+	InitOptions.OverrideFarClippingPlaneDistance = CamInfo.OrthoFarClipPlane;
+
 	FSceneView* View = new FSceneView(InitOptions);
 	View->bIsGameView = true;
+
+	// Fix exposure: override auto-exposure with a fixed value so the stereo window
+	// brightness matches the main viewport. Without this, the missing ViewState
+	// EyeAdaptation history causes the renderer to use default (dark) exposure.
+	View->FinalPostProcessSettings.AutoExposureMethod           = EAutoExposureMethod::AEM_Manual;
+	View->FinalPostProcessSettings.AutoExposureBias             = 0.0f;
+	View->FinalPostProcessSettings.bOverride_AutoExposureMethod = true;
+	View->FinalPostProcessSettings.bOverride_AutoExposureBias   = true;
+
+	// Inject the camera component's post-process blend chain.
+	View->OverridePostProcessSettings(CamInfo.PostProcessSettings, CamInfo.PostProcessBlendWeight);
 
 	ViewFamily.Views.Add(View);
 	return View;
@@ -114,12 +127,20 @@ void USStereoViewportClient::Draw(FViewport* InViewport, FCanvas* SceneCanvas)
 	ShowFlags.SetTonemapper(false);
 	ShowFlags.SetColorGrading(false);
 	ShowFlags.SetEyeAdaptation(false);
+	ShowFlags.SetBloom(false);
+	ShowFlags.SetAmbientOcclusion(true);
+	ShowFlags.SetMotionBlur(false);
+	// Shadows: explicitly enabled so the stereo window matches the main viewport.
+	ShowFlags.SetDynamicShadows(true);
 
 	FSceneViewFamily::ConstructionValues CVS(InViewport, CurrentWorld->Scene, ShowFlags);
 	CVS.SetRealtimeUpdate(true);
 	CVS.SetTime(FGameTime::GetTimeSinceAppStart());
+	CVS.bResolveScene = true;
 
 	FSceneViewFamilyContext ViewFamily(CVS);
+	// Match the main viewport HDR output state so scene color format is consistent.
+	ViewFamily.bIsHDR = TargetWindow.IsValid() && TargetWindow.Pin()->GetIsHDR();
 	ViewFamily.SetScreenPercentageInterface(new FLegacyScreenPercentageDriver(ViewFamily, 1.0f));
 
 	// Per-eye H-FOV = half of the full camera FOV (SBS layout).

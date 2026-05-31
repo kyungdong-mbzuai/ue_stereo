@@ -20,7 +20,7 @@ void SStereoWindow::Construct(const FArguments& InArgs)
 		[
 			SAssignNew(ViewportWidget, SViewport)
 				.RenderDirectlyToWindow(false)
-				.EnableGammaCorrection(true)
+				.EnableGammaCorrection(false)
 		];
 }
 
