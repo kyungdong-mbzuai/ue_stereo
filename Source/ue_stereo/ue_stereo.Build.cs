@@ -15,12 +15,13 @@ public class ue_stereo : ModuleRules
 			"InputCore", 
 			"EnhancedInput",
 			"XRBase",
-            "HeadMountedDisplay",
-            "Slate",
-            "SlateCore",
-            "RHI",
-            "RenderCore"
-        });
+			"HeadMountedDisplay",
+			"Slate",
+			"SlateCore",
+			"RHI",
+			"RenderCore",
+			"Renderer"
+		});
 
         PrivateDependencyModuleNames.AddRange(new string[] {
 		});

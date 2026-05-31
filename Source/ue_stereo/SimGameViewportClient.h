@@ -7,6 +7,7 @@
 #include "StereoRendering.h"
 #include "SimStereoRendering.h"
 #include "SStereoWindow.h"
+#include "SStereoViewportClient.h"
 #include "SimGameViewportClient.generated.h"
 
 /**
@@ -27,7 +28,8 @@ public:
 	bool GetHMDHeadPose(FQuat& OutOrientation, FVector& OutPosition) const;
 
 	// Open the stereo output window on the configured monitor.
-	void OpenStereoWindow();
+	// World and Owner are forwarded to SStereoWindow::Open() to spawn the camera.
+	void OpenStereoWindow(UWorld* InWorld, AActor* Owner);
 
 	// Close the stereo output window.
 	void CloseStereoWindow();
@@ -61,7 +63,7 @@ private:
 	// restored when switching back to OpenXR mode.
 	TSharedPtr<class IStereoRendering, ESPMode::ThreadSafe> OriginalStereoRenderingDevice;
 
-	// Stereo output window (separate OS window receiving scene render texture).
+	// Stereo output window — independent rendering pipeline.
 	TSharedPtr<SStereoWindow> StereoWindow;
 
 	// Config: stereo window display settings.

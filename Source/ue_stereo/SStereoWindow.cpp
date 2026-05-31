@@ -1,10 +1,14 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "SStereoWindow.h"
+#include "SStereoWindowCamera.h"
+#include "SStereoViewportClient.h"
 #include "SlateOptMacros.h"
+#include "Engine/Engine.h"
+#include "Engine/World.h"
+#include "Slate/SceneViewport.h"
 #include "Widgets/SViewport.h"
-#include "RenderResource.h"
-#include "RenderingThread.h"
+#include "Framework/Application/SlateApplication.h"
 
 // ---------------------------------------------------------------------------
 // Construct
@@ -13,17 +17,12 @@ BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION
 
 void SStereoWindow::Construct(const FArguments& InArgs)
 {
-	Viewport = MakeShared<FStereoViewport>();
-
 	ChildSlot
-	[
-		SAssignNew(ViewportWidget, SViewport)
-		.EnableGammaCorrection(false)
-		.RenderDirectlyToWindow(false)
-		.IsEnabled(false)
-	];
-
-	ViewportWidget->SetViewportInterface(Viewport.ToSharedRef());
+		[
+			SAssignNew(ViewportWidget, SViewport)
+				.RenderDirectlyToWindow(false)
+				.EnableGammaCorrection(true)
+		];
 }
 
 END_SLATE_FUNCTION_BUILD_OPTIMIZATION
@@ -33,7 +32,7 @@ END_SLATE_FUNCTION_BUILD_OPTIMIZATION
 // ---------------------------------------------------------------------------
 SStereoWindow::~SStereoWindow()
 {
-	ReleaseResources();
+	Close();
 }
 
 // ---------------------------------------------------------------------------
@@ -68,9 +67,9 @@ FVector2D SStereoWindow::GetMonitorOrigin(int32 MonitorId)
 	FVector2D Origin(0.0f, 0.0f);
 #if PLATFORM_WINDOWS
 	FMonitorFindData Data;
-	Data.TargetIndex  = MonitorId;
+	Data.TargetIndex = MonitorId;
 	Data.CurrentIndex = 0;
-	Data.bFound       = false;
+	Data.bFound = false;
 	EnumDisplayMonitors(nullptr, nullptr, MonitorEnumProc, reinterpret_cast<LPARAM>(&Data));
 	if (Data.bFound)
 	{
@@ -83,13 +82,52 @@ FVector2D SStereoWindow::GetMonitorOrigin(int32 MonitorId)
 // ---------------------------------------------------------------------------
 // Open
 // ---------------------------------------------------------------------------
-void SStereoWindow::Open(const FStereoWindowSettings& InSettings)
+void SStereoWindow::Open(UWorld* World, AActor* Owner, const FStereoWindowSettings& InSettings)
 {
 	if (bWindowOpen) return;
 
+	if (!World || !GEngine || !FSlateApplication::IsInitialized())
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[SStereoWindow] Open: preconditions not met (World=%s GEngine=%s Slate=%s)."),
+			World ? TEXT("OK") : TEXT("null"),
+			GEngine ? TEXT("OK") : TEXT("null"),
+			FSlateApplication::IsInitialized() ? TEXT("OK") : TEXT("no"));
+		return;
+	}
+
+	// 1. Spawn camera actor into the shared scene.
+	FActorSpawnParameters SpawnParams;
+	SpawnParams.Owner = Owner;
+	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+	Camera = World->SpawnActor<ASStereoWindowCamera>(
+		ASStereoWindowCamera::StaticClass(),
+		FVector::ZeroVector,
+		FRotator::ZeroRotator,
+		SpawnParams);
+
+	if (!Camera)
+	{
+		UE_LOG(LogTemp, Error, TEXT("[SStereoWindow] Open: failed to spawn camera actor."));
+		return;
+	}
+
+	// 2. Create the viewport client.
+	// AddToRoot prevents GC — the client is not owned by a GameInstance.
+	ViewportClient = NewObject<USStereoViewportClient>(GEngine, USStereoViewportClient::StaticClass());
+	ViewportClient->AddToRoot();
+	ViewportClient->StereoCamera = Camera;
+	ViewportClient->TargetWorld = World;
+
+	// 3. Wrap the SViewport widget in an FSceneViewport.
+	SceneViewport = MakeShared<FSceneViewport>(ViewportClient, ViewportWidget);
+	ViewportClient->Viewport = SceneViewport.Get();
+	ViewportWidget->SetViewportInterface(SceneViewport.ToSharedRef());
+
+	// 4. Create the OS window and embed this widget as its content.
 	OsWindow = SNew(SWindow)
 		.Title(FText::FromString(TEXT("Stereo Output")))
-		.SizingRule(ESizingRule::FixedSize)
+		.ClientSize(FVector2D((float)InSettings.Width, (float)InSettings.Height))
+
 		.bDragAnywhere(false)
 		.HasCloseButton(false)
 		.IsTopmostWindow(false)
@@ -102,7 +140,16 @@ void SStereoWindow::Open(const FStereoWindowSettings& InSettings)
 	FSlateApplication::Get().AddWindow(OsWindow.ToSharedRef(), true);
 	bWindowOpen = true;
 
+	ViewportClient->TargetWindow = OsWindow;
+
+	// 5. Enable stereo on the SViewport widget (does not touch GEngine->StereoRenderingDevice).
+	ViewportClient->InitStereoRendering(ViewportWidget);
+
+	// 6. Position the window on the requested monitor.
 	MoveWindowToMonitor(InSettings.MonitorId, InSettings.Width, InSettings.Height);
+
+	UE_LOG(LogTemp, Log, TEXT("[SStereoWindow] Opened on monitor %d (%dx%d)."),
+		InSettings.MonitorId, InSettings.Width, InSettings.Height);
 }
 
 // ---------------------------------------------------------------------------
@@ -112,11 +159,13 @@ void SStereoWindow::Close()
 {
 	if (!bWindowOpen) return;
 
-	// Detach texture from viewport before window destruction.
-	if (Viewport.IsValid())
+	if (Camera)
 	{
-		Viewport->SetTexture(nullptr);
+		Camera->Destroy();
+		Camera = nullptr;
 	}
+
+	SceneViewport.Reset();
 
 	if (OsWindow.IsValid())
 	{
@@ -127,105 +176,32 @@ void SStereoWindow::Close()
 		OsWindow.Reset();
 	}
 
+	if (ViewportClient)
+	{
+		ViewportClient->RemoveFromRoot();
+		ViewportClient = nullptr;
+	}
+
 	bWindowOpen = false;
-	UE_LOG(LogTemp, Log, TEXT("SStereoWindow: Closed"));
+	UE_LOG(LogTemp, Log, TEXT("[SStereoWindow] Closed."));
 }
 
 // ---------------------------------------------------------------------------
-// UpdateSceneTexture
+// Tick — call once per frame to trigger the scene render
 // ---------------------------------------------------------------------------
-void SStereoWindow::UpdateSceneTexture(FTextureRHIRef InSceneRHI, FIntPoint ViewportSize)
+void SStereoWindow::Tick()
 {
-	if (!bWindowOpen || !InSceneRHI.IsValid()) return;
-
-	const EPixelFormat SceneFormat = InSceneRHI->GetFormat();
-
-	// Reallocate when size OR format changes (format mismatch causes silent CopyTexture failure).
-	const bool bNeedRealloc = !CopiedSceneTexture.IsValid()
-		|| CopiedSceneTextureSize != ViewportSize
-		|| CopiedSceneTexture->GetFormat() != SceneFormat;
-
-	if (bNeedRealloc)
+	if (!bWindowOpen || !SceneViewport.IsValid() || !OsWindow.IsValid())
 	{
-		// Detach from viewport before releasing old resources.
-		if (Viewport.IsValid())
-		{
-			Viewport->SetTexture(nullptr);
-		}
-
-		if (SlateTexture.IsValid())
-		{
-			BeginReleaseResource(SlateTexture.Get());
-			FlushRenderingCommands();
-			SlateTexture.Reset();
-		}
-
-		CopiedSceneTexture.SafeRelease();
-		CopiedSceneTextureSize = ViewportSize;
-
-		// CopiedSceneTexture must have the SAME format as InSceneRHI so CopyTexture
-		// does not fail silently. RenderTargetable so it can be a copy destination.
-		ENQUEUE_RENDER_COMMAND(SStereoAllocCopied)(
-			[this, ViewportSize, SceneFormat](FRHICommandListImmediate& RHICmdList)
-			{
-				const FRHITextureCreateDesc Desc =
-					FRHITextureCreateDesc::Create2D(TEXT("SStereoCopied"),
-						ViewportSize.X, ViewportSize.Y, SceneFormat)
-					.SetFlags(ETextureCreateFlags::RenderTargetable | ETextureCreateFlags::ShaderResource);
-				CopiedSceneTexture = RHICmdList.CreateTexture(Desc);
-			}
-		);
-		FlushRenderingCommands();
-
-		// FSlateTexture2DRHIRef(FTextureRHIRef, w, h) wraps an existing RHI texture.
-		// ShaderResource is set in TSlateTexture constructor; InitRHI is a no-op.
-		SlateTexture = MakeShareable(
-			new FSlateTexture2DRHIRef(CopiedSceneTexture,
-				(uint32)ViewportSize.X, (uint32)ViewportSize.Y)
-		);
-		BeginInitResource(SlateTexture.Get());
-		FlushRenderingCommands();
-
-		if (Viewport.IsValid())
-		{
-			Viewport->SetTexture(SlateTexture.Get());
-		}
-
-		UE_LOG(LogTemp, Warning, TEXT("SStereoWindow: (Re)allocated %dx%d fmt=%d"),
-			ViewportSize.X, ViewportSize.Y, (int32)SceneFormat);
+		return;
 	}
 
-	// Copy the live scene RHI into CopiedSceneTexture (= SlateTexture's backing resource).
-	ENQUEUE_RENDER_COMMAND(SStereoWindowCopy)(
-		[Src = InSceneRHI, Dst = CopiedSceneTexture](FRHICommandListImmediate& RHICmdList)
-		{
-			if (Src.IsValid() && Dst.IsValid())
-			{
-				RHICmdList.CopyTexture(Src, Dst, FRHICopyTextureInfo());
-			}
-		}
-	);
-}
-
-// ---------------------------------------------------------------------------
-// ReleaseResources
-// ---------------------------------------------------------------------------
-void SStereoWindow::ReleaseResources()
-{
-	Close();
-
-	if (SlateTexture.IsValid())
+	if (!OsWindow->GetNativeWindow().IsValid())
 	{
-		if (Viewport.IsValid())
-		{
-			Viewport->SetTexture(nullptr);
-		}
-		BeginReleaseResource(SlateTexture.Get());
-		FlushRenderingCommands();
-		SlateTexture.Reset();
+		return;
 	}
 
-	CopiedSceneTexture.SafeRelease();
+	SceneViewport->Draw(true);
 }
 
 // ---------------------------------------------------------------------------
@@ -239,6 +215,6 @@ void SStereoWindow::MoveWindowToMonitor(int32 MonitorId, int32 Width, int32 Heig
 	OsWindow->Resize(FVector2D((float)Width, (float)Height));
 	OsWindow->MoveWindowTo(Origin);
 
-	UE_LOG(LogTemp, Warning, TEXT("SStereoWindow: Monitor=%d Origin=(%.0f,%.0f) Size=%dx%d"),
+	UE_LOG(LogTemp, Log, TEXT("[SStereoWindow] Monitor=%d Origin=(%.0f,%.0f) Size=%dx%d"),
 		MonitorId, Origin.X, Origin.Y, Width, Height);
 }

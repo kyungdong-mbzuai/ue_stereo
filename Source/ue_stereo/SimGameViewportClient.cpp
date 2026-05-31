@@ -40,7 +40,7 @@ void USimGameViewportClient::BeginDestroy()
 	// render thread is no longer running (edge case during editor hot-reload / exit).
 	if (StereoWindow.IsValid())
 	{
-		StereoWindow->ReleaseResources();
+		StereoWindow->Close();
 		StereoWindow.Reset();
 	}
 
@@ -140,7 +140,7 @@ void USimGameViewportClient::EnsureCustomStereo()
 	EngineShowFlags.SetStereoRendering(true);
 }
 
-void USimGameViewportClient::OpenStereoWindow()
+void USimGameViewportClient::OpenStereoWindow(UWorld* InWorld, AActor* Owner)
 {
 	if (StereoWindow.IsValid() && StereoWindow->IsOpen())
 	{
@@ -156,9 +156,7 @@ void USimGameViewportClient::OpenStereoWindow()
 	Settings.MonitorId = StereoWindowMonitorId;
 	Settings.Width     = StereoWindowWidth;
 	Settings.Height    = StereoWindowHeight;
-	StereoWindow->Open(Settings);
-
-	SetVRMode_CustomStereo();
+	StereoWindow->Open(InWorld, Owner, Settings);
 
 	UE_LOG(LogTemp, Warning, TEXT("[SimStereo] StereoWindow opened - Monitor=%d Size=%dx%d"),
 		Settings.MonitorId, Settings.Width, Settings.Height);
@@ -169,7 +167,6 @@ void USimGameViewportClient::CloseStereoWindow()
 	if (StereoWindow.IsValid() && StereoWindow->IsOpen())
 	{
 		StereoWindow->Close();
-		SetVRMode_OpenXR();
 		UE_LOG(LogTemp, Log, TEXT("[SimStereo] StereoWindow closed"));
 	}
 }
@@ -182,7 +179,8 @@ void USimGameViewportClient::ToggleStereoWindow()
 	}
 	else
 	{
-		OpenStereoWindow();
+		UWorld* CurrentWorld = GetWorld();
+		OpenStereoWindow(CurrentWorld, nullptr);
 	}
 }
 
@@ -232,23 +230,10 @@ void USimGameViewportClient::Draw(FViewport* InViewport, FCanvas* SceneCanvas)
 	// Render scene first so the viewport render target is populated.
 	Super::Draw(InViewport, SceneCanvas);
 
-	// Forward the scene render texture to the stereo output window when open.
+	// Tick the independent stereo window -- triggers its own scene render.
 	if (StereoWindow.IsValid() && StereoWindow->IsOpen())
 	{
-		FTextureRHIRef SceneRHITexture = InViewport->GetRenderTargetTexture();
-		const FIntPoint TextureSize    = InViewport->GetSizeXY();
-
-		if (SceneRHITexture.IsValid())
-		{
-			StereoWindow->UpdateSceneTexture(SceneRHITexture, TextureSize);
-
-			static int32 FrameCounter = 0;
-			if (FrameCounter++ % 60 == 0)
-			{
-				UE_LOG(LogTemp, Log, TEXT("[SimStereo] Draw: StereoWindow Texture=%p Size=%dx%d"),
-					SceneRHITexture.GetReference(), TextureSize.X, TextureSize.Y);
-			}
-		}
+		StereoWindow->Tick();
 	}
 }
 

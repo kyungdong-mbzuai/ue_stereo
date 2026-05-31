@@ -4,9 +4,6 @@
 
 #include "CoreMinimal.h"
 #include "Widgets/SCompoundWidget.h"
-#include "Slate/SlateTextures.h"
-#include "RHICommandList.h"
-#include "RHIResources.h"
 #include "Framework/Application/SlateApplication.h"
 
 #if PLATFORM_WINDOWS
@@ -15,29 +12,10 @@
 #include "Windows/HideWindowsPlatformTypes.h"
 #endif
 
-class FStereoViewport : public ISlateViewport
-{
-public:
-void SetTexture(FSlateTexture2DRHIRef* InTexture) { SlateTexture = InTexture; }
-
-virtual FIntPoint GetSize() const override
-{
-return SlateTexture
-? FIntPoint((int32)SlateTexture->GetWidth(), (int32)SlateTexture->GetHeight())
-: FIntPoint(1, 1);
-}
-
-virtual FSlateShaderResource* GetViewportRenderTargetTexture() const override
-{
-return SlateTexture ? SlateTexture->GetSlateResource() : nullptr;
-}
-
-virtual bool RequiresVsync() const override { return false; }
-virtual bool AllowScaling()  const override { return true;  }
-
-private:
-FSlateTexture2DRHIRef* SlateTexture = nullptr;
-};
+class ASStereoWindowCamera;
+class USStereoViewportClient;
+class FSceneViewport;
+class UWorld;
 
 struct FStereoWindowSettings
 {
@@ -46,6 +24,16 @@ int32 Width     = 3840;
 int32 Height    = 1080;
 };
 
+// Independent stereo output window.
+// Owns a camera actor, a custom viewport client, and an FSceneViewport.
+// Renders its own scene via FSceneViewFamilyContext -- completely independent
+// of GEngine->StereoRenderingDevice and the main viewport pipeline.
+//
+// Usage:
+//   SAssignNew(StereoWindow, SStereoWindow);
+//   StereoWindow->Open(World, OwnerActor, Settings);
+//   StereoWindow->Tick();   // once per frame
+//   StereoWindow->Close();
 class SStereoWindow : public SCompoundWidget
 {
 public:
@@ -55,23 +43,32 @@ SLATE_END_ARGS()
 void Construct(const FArguments& InArgs);
 virtual ~SStereoWindow();
 
-void Open(const FStereoWindowSettings& InSettings);
+// Open the stereo window, spawn the camera, and start rendering.
+void Open(UWorld* World, AActor* Owner, const FStereoWindowSettings& InSettings);
+
+// Close the window and destroy all owned resources.
 void Close();
+
 bool IsOpen() const { return bWindowOpen; }
 
-void UpdateSceneTexture(FTextureRHIRef InSceneRHI, FIntPoint ViewportSize);
-void ReleaseResources();
+// Call once per frame to trigger the independent scene render.
+void Tick();
+
+// Move/resize the OS window to a specific monitor.
 void MoveWindowToMonitor(int32 MonitorId, int32 Width, int32 Height);
+
+// Access the viewport client to update camera pose or IPD externally.
+USStereoViewportClient* GetViewportClient() const { return ViewportClient; }
 
 private:
 static FVector2D GetMonitorOrigin(int32 MonitorId);
 
-TSharedPtr<FStereoViewport>   Viewport;
-TSharedPtr<class SViewport>   ViewportWidget;
-TSharedPtr<SWindow>           OsWindow;
+TSharedPtr<class SViewport>        ViewportWidget;
+TSharedPtr<SWindow>                OsWindow;
+TSharedPtr<FSceneViewport>         SceneViewport;
 
-TSharedPtr<FSlateTexture2DRHIRef, ESPMode::ThreadSafe> SlateTexture;
-FTextureRHIRef  CopiedSceneTexture;
-FIntPoint       CopiedSceneTextureSize = FIntPoint::ZeroValue;
-bool            bWindowOpen = false;
+TObjectPtr<ASStereoWindowCamera>   Camera;
+TObjectPtr<USStereoViewportClient> ViewportClient;
+
+bool bWindowOpen = false;
 };
