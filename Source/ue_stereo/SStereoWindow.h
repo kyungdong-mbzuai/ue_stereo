@@ -19,9 +19,9 @@ class UWorld;
 
 struct FStereoWindowSettings
 {
-int32 MonitorId = 1;
-int32 Width     = 3840;
-int32 Height    = 1080;
+	int32 MonitorId = 1;
+	int32 Width = 3840;
+	int32 Height = 1080;
 };
 
 // Independent stereo output window.
@@ -37,38 +37,38 @@ int32 Height    = 1080;
 class SStereoWindow : public SCompoundWidget
 {
 public:
-SLATE_BEGIN_ARGS(SStereoWindow) {}
-SLATE_END_ARGS()
+	SLATE_BEGIN_ARGS(SStereoWindow) {}
+	SLATE_END_ARGS()
 
-void Construct(const FArguments& InArgs);
-virtual ~SStereoWindow();
+	void Construct(const FArguments& InArgs);
+	virtual ~SStereoWindow();
 
-// Open the stereo window, spawn the camera, and start rendering.
-void Open(UWorld* World, AActor* Owner, const FStereoWindowSettings& InSettings);
+	// Open the stereo window, spawn the camera, and start rendering.
+	void Open(UWorld* World, AActor* Owner, const FStereoWindowSettings& InSettings);
 
-// Close the window and destroy all owned resources.
-void Close();
+	// Close the window and destroy all owned resources.
+	void Close();
 
-bool IsOpen() const { return bWindowOpen; }
+	bool IsOpen() const { return bWindowOpen; }
 
-// Call once per frame to trigger the independent scene render.
-void Tick();
+	// Call once per frame to trigger the independent scene render.
+	void Tick();
 
-// Move/resize the OS window to a specific monitor.
-void MoveWindowToMonitor(int32 MonitorId, int32 Width, int32 Height);
+	// Move/resize the OS window to a specific monitor.
+	void MoveWindowToMonitor(int32 MonitorId, int32 Width, int32 Height);
 
-// Access the viewport client to update camera pose or IPD externally.
-USStereoViewportClient* GetViewportClient() const { return ViewportClient; }
+	// Access the viewport client to update camera pose or IPD externally.
+	USStereoViewportClient* GetViewportClient() const { return ViewportClient; }
 
 private:
-static FVector2D GetMonitorOrigin(int32 MonitorId);
+	static FVector2D GetMonitorOrigin(int32 MonitorId);
 
-TSharedPtr<class SViewport>        ViewportWidget;
-TSharedPtr<SWindow>                OsWindow;
-TSharedPtr<FSceneViewport>         SceneViewport;
+	TSharedPtr<class SViewport>        ViewportWidget;
+	TSharedPtr<SWindow>                OsWindow;
+	TSharedPtr<FSceneViewport>         SceneViewport;
 
-TObjectPtr<ASStereoWindowCamera>   Camera;
-TObjectPtr<USStereoViewportClient> ViewportClient;
+	TObjectPtr<ASStereoWindowCamera>   Camera;
+	TObjectPtr<USStereoViewportClient> ViewportClient;
 
-bool bWindowOpen = false;
+	bool bWindowOpen = false;
 };
