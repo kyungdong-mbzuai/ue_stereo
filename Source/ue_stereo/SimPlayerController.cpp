@@ -61,6 +61,13 @@ void ASimPlayerController::BeginPlay()
 		//ESpectatorScreenMode Mode = ESpectatorScreenMode::Disabled;
 		UHeadMountedDisplayFunctionLibrary::SetSpectatorScreenMode(Mode);
 	}
+
+
+	USimGameViewportClient* VPC = Cast<USimGameViewportClient>(GetWorld() ? GetWorld()->GetGameViewport() : nullptr);
+	if (VPC)
+	{
+		//VPC->SetVRMode_CustomStereo();
+	}
 }
 
 void ASimPlayerController::SetupInputComponent()

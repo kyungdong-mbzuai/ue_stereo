@@ -31,6 +31,9 @@ void USimGameViewportClient::Init(FWorldContext& WorldContext, UGameInstance* Ow
 
 	//bCustomStereo = true;
 	//EnsureStereoDevice();
+
+	//bCustomStereo = true;
+	//SetVRMode_CustomStereo();
 }
 
 void USimGameViewportClient::BeginDestroy()
@@ -221,12 +224,12 @@ void USimGameViewportClient::Draw(FViewport* InViewport, FCanvas* SceneCanvas)
 				HeadLocation.X, HeadLocation.Y, HeadLocation.Z));
 	}
 
-	TSharedPtr<SViewport> ViewportWidget = GetGameViewportWidget();
-	if (ViewportWidget.IsValid() && !ViewportWidget->IsStereoRenderingAllowed())
-	{
-		ViewportWidget->EnableStereoRendering(true);
-		UE_LOG(LogTemp, Warning, TEXT("[SimStereo] ViewportClient::Draw - SViewport::EnableStereoRendering(true) called"));
-	}
+	//TSharedPtr<SViewport> ViewportWidget = GetGameViewportWidget();
+	//if (ViewportWidget.IsValid() && !ViewportWidget->IsStereoRenderingAllowed())
+	//{
+	//	ViewportWidget->EnableStereoRendering(true);
+	//	UE_LOG(LogTemp, Warning, TEXT("[SimStereo] ViewportClient::Draw - SViewport::EnableStereoRendering(true) called"));
+	//}
 
 
 	// Render scene first so the viewport render target is populated.

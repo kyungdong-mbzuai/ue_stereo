@@ -133,7 +133,7 @@ void USStereoViewportClient::Draw(FViewport* InViewport, FCanvas* SceneCanvas)
 	// with no tonemapper, which outputs raw linear values and looks dark.
 	// EyeAdaptation is disabled because our ViewState has no adaptation history;
 	// manual exposure set in AddEyeView() keeps the brightness stable instead.
-	ShowFlags.SetStereoRendering(true);
+	ShowFlags.SetStereoRendering(false);
 	ShowFlags.SetEyeAdaptation(false);
 	ShowFlags.SetBloom(false);
 	ShowFlags.SetMotionBlur(false);
