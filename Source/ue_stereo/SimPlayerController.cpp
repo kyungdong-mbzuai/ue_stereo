@@ -39,6 +39,7 @@ void ASimPlayerController::BeginPlay()
 
 	// Enable HMD to receive tracking data.
 	UHeadMountedDisplayFunctionLibrary::EnableHMD(true);
+	GEngine->StereoRenderingDevice->EnableStereo(true);	
 
 
 	// Use floor-level tracking origin for accurate coordinates.
