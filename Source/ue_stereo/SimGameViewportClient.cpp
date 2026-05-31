@@ -188,35 +188,37 @@ void USimGameViewportClient::Draw(FViewport* InViewport, FCanvas* SceneCanvas)
 {
 	EnsureCustomStereo();
 
-	FVector CurrentHMDPosition;
-	FQuat   CurrentHMDOrientation;
-	const bool bHasPose = GetHMDHeadPose(CurrentHMDOrientation, CurrentHMDPosition);
+	FVector HeadLocation;
+	FRotator HeadRotation;
+	//const bool bHasPose = GetHMDHeadPose(HeadRotation, HeadLocation);
+	UHeadMountedDisplayFunctionLibrary::GetOrientationAndPosition(HeadRotation, HeadLocation);
+
 
 	UE_LOG(LogTemp, Warning, TEXT("[SimStereo] GetHMDHeadPose - Orientation=%s Position=%s"),
-		*CurrentHMDOrientation.ToString(), *CurrentHMDPosition.ToString());
+		*HeadRotation.ToString(), *HeadLocation.ToString());
 
 	// Inject OpenXR HMD pose into SimLocalPlayer so GetProjectionData uses it each frame.
-	if (bHasPose && bCustomStereo)
+	if (bCustomStereo)
 	{
 		ULocalPlayer* LP = GEngine ? GEngine->GetFirstGamePlayer(this) : nullptr;
 		USimLocalPlayer* SimPlayer = Cast<USimLocalPlayer>(LP);
 		if (SimPlayer)
 		{
-			SimPlayer->BaseLocation      = CurrentHMDPosition;
-			SimPlayer->BaseRotation      = CurrentHMDOrientation.Rotator();
+			SimPlayer->BaseLocation      = HeadLocation;
+			SimPlayer->BaseRotation      = HeadRotation;
 			SimPlayer->bBaseTransformSet = true;
 		}
 	}
 
 	if (GEngine)
 	{
-		const FRotator HMDRotator = CurrentHMDOrientation.Rotator();
+		const FRotator HMDRotator = HeadRotation;
 		GEngine->AddOnScreenDebugMessage(1, 0.0f, FColor::Cyan,
 			FString::Printf(TEXT("[HMD] Orientation: P=%.2f Y=%.2f R=%.2f"),
 				HMDRotator.Pitch, HMDRotator.Yaw, HMDRotator.Roll));
 		GEngine->AddOnScreenDebugMessage(2, 0.0f, FColor::Green,
 			FString::Printf(TEXT("[HMD] Position: X=%.2f Y=%.2f Z=%.2f"),
-				CurrentHMDPosition.X, CurrentHMDPosition.Y, CurrentHMDPosition.Z));
+				HeadLocation.X, HeadLocation.Y, HeadLocation.Z));
 	}
 
 	TSharedPtr<SViewport> ViewportWidget = GetGameViewportWidget();
@@ -233,6 +235,23 @@ void USimGameViewportClient::Draw(FViewport* InViewport, FCanvas* SceneCanvas)
 	// Tick the independent stereo window -- triggers its own scene render.
 	if (StereoWindow.IsValid() && StereoWindow->IsOpen())
 	{
+		UWorld* CurrentWorld = GetWorld();
+		APlayerController* PC = CurrentWorld ? CurrentWorld->GetFirstPlayerController() : nullptr;
+		if (PC && PC->PlayerCameraManager)
+		{
+			// Base pose from player camera manager (world space)
+			const FVector  BaseLocation = PC->PlayerCameraManager->GetCameraLocation();
+			const FRotator BaseRotation = PC->PlayerCameraManager->GetCameraRotation();
+
+			// HMD head pose is relative to the tracking origin (in UE units, cm)
+			// Rotate the HMD offset into world space using the base camera rotation
+			const FVector  WorldHeadOffset = BaseRotation.RotateVector(HeadLocation);
+			const FVector  FinalLocation = BaseLocation + WorldHeadOffset;
+			const FRotator FinalRotation = (BaseRotation.Quaternion() * HeadRotation.Quaternion()).Rotator();
+
+			StereoWindow->SetCameraPose(FinalLocation, FinalRotation);
+		}
+
 		StereoWindow->Tick();
 	}
 }

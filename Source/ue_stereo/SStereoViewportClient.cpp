@@ -1,8 +1,6 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "SStereoViewportClient.h"
-#include "SStereoWindowCamera.h"
-#include "Camera/CameraComponent.h"
 #include "Engine/Engine.h"
 #include "Engine/World.h"
 #include "SceneView.h"
@@ -27,10 +25,8 @@ void USStereoViewportClient::InitStereoRendering(TSharedPtr<SViewport> InViewpor
 
 void USStereoViewportClient::SetCameraTransform(const FVector& Location, const FRotator& Rotation)
 {
-	if (StereoCamera.IsValid())
-	{
-		StereoCamera->SetActorLocationAndRotation(Location, Rotation);
-	}
+	CameraLocation = Location;
+	CameraRotation = Rotation;
 }
 
 // Build one eye view and add it to the ViewFamily.
@@ -93,13 +89,7 @@ static FSceneView* AddEyeView(
 void USStereoViewportClient::Draw(FViewport* InViewport, FCanvas* SceneCanvas)
 {
 	UWorld* CurrentWorld = TargetWorld.Get();
-	if (!CurrentWorld || !CurrentWorld->Scene || !StereoCamera.IsValid())
-	{
-		return;
-	}
-
-	UCameraComponent* CamComp = StereoCamera->CameraComponent;
-	if (!CamComp)
+	if (!CurrentWorld || !CurrentWorld->Scene)
 	{
 		return;
 	}
@@ -111,7 +101,9 @@ void USStereoViewportClient::Draw(FViewport* InViewport, FCanvas* SceneCanvas)
 	}
 
 	FMinimalViewInfo CamInfo;
-	CamComp->GetCameraView(0.0f, CamInfo);
+	CamInfo.Location = CameraLocation;
+	CamInfo.Rotation = CameraRotation;
+	CamInfo.FOV      = CameraFOV;
 
 	// Show flags: game view with SBS stereo.
 	// Post-process / tone-mapper disabled — no ULocalPlayer::CalcSceneView path
@@ -141,12 +133,11 @@ void USStereoViewportClient::Draw(FViewport* InViewport, FCanvas* SceneCanvas)
 			FMath::Tan(FMath::DegreesToRadians(PerEyeHFov * 0.5f)) / PerEyeAspect));
 
 	const float HalfIPD = IPD * 0.5f;
-	AActor* ViewActor   = StereoCamera.Get();
 
 	// Left eye (negative IPD offset)
-	AddEyeView(ViewFamily, ViewStateLeft,  CamInfo, RenderSize, 0, -HalfIPD, PerEyeHFov, PerEyeVFov, ViewActor);
+	AddEyeView(ViewFamily, ViewStateLeft,  CamInfo, RenderSize, 0, -HalfIPD, PerEyeHFov, PerEyeVFov, nullptr);
 	// Right eye (positive IPD offset)
-	AddEyeView(ViewFamily, ViewStateRight, CamInfo, RenderSize, 1, +HalfIPD, PerEyeHFov, PerEyeVFov, ViewActor);
+	AddEyeView(ViewFamily, ViewStateRight, CamInfo, RenderSize, 1, +HalfIPD, PerEyeHFov, PerEyeVFov, nullptr);
 
 	GetRendererModule().BeginRenderingViewFamily(SceneCanvas, &ViewFamily);
 }

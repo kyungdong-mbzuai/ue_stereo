@@ -1,7 +1,6 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "SStereoWindow.h"
-#include "SStereoWindowCamera.h"
 #include "SStereoViewportClient.h"
 #include "SlateOptMacros.h"
 #include "Engine/Engine.h"
@@ -95,35 +94,18 @@ void SStereoWindow::Open(UWorld* World, AActor* Owner, const FStereoWindowSettin
 		return;
 	}
 
-	// 1. Spawn camera actor into the shared scene.
-	FActorSpawnParameters SpawnParams;
-	SpawnParams.Owner = Owner;
-	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-	Camera = World->SpawnActor<ASStereoWindowCamera>(
-		ASStereoWindowCamera::StaticClass(),
-		FVector::ZeroVector,
-		FRotator::ZeroRotator,
-		SpawnParams);
-
-	if (!Camera)
-	{
-		UE_LOG(LogTemp, Error, TEXT("[SStereoWindow] Open: failed to spawn camera actor."));
-		return;
-	}
-
-	// 2. Create the viewport client.
+	// 1. Create the viewport client.
 	// AddToRoot prevents GC — the client is not owned by a GameInstance.
 	ViewportClient = NewObject<USStereoViewportClient>(GEngine, USStereoViewportClient::StaticClass());
 	ViewportClient->AddToRoot();
-	ViewportClient->StereoCamera = Camera;
 	ViewportClient->TargetWorld = World;
 
-	// 3. Wrap the SViewport widget in an FSceneViewport.
+	// 2. Wrap the SViewport widget in an FSceneViewport.
 	SceneViewport = MakeShared<FSceneViewport>(ViewportClient, ViewportWidget);
 	ViewportClient->Viewport = SceneViewport.Get();
 	ViewportWidget->SetViewportInterface(SceneViewport.ToSharedRef());
 
-	// 4. Create the OS window and embed this widget as its content.
+	// 3. Create the OS window and embed this widget as its content.
 	OsWindow = SNew(SWindow)
 		.Title(FText::FromString(TEXT("Stereo Output")))
 		.ClientSize(FVector2D((float)InSettings.Width, (float)InSettings.Height))
@@ -158,12 +140,6 @@ void SStereoWindow::Open(UWorld* World, AActor* Owner, const FStereoWindowSettin
 void SStereoWindow::Close()
 {
 	if (!bWindowOpen) return;
-
-	if (Camera)
-	{
-		Camera->Destroy();
-		Camera = nullptr;
-	}
 
 	SceneViewport.Reset();
 
@@ -202,6 +178,16 @@ void SStereoWindow::Tick()
 	}
 
 	SceneViewport->Draw(true);
+}
+
+// ---------------------------------------------------------------------------
+// SetCameraPose
+// ---------------------------------------------------------------------------
+void SStereoWindow::SetCameraPose(const FVector& Location, const FRotator& Rotation)
+{
+	if (!ViewportClient) return;
+	ViewportClient->CameraLocation = Location;
+	ViewportClient->CameraRotation = Rotation;
 }
 
 // ---------------------------------------------------------------------------

@@ -12,7 +12,6 @@
 #include "Windows/HideWindowsPlatformTypes.h"
 #endif
 
-class ASStereoWindowCamera;
 class USStereoViewportClient;
 class FSceneViewport;
 class UWorld;
@@ -25,7 +24,7 @@ struct FStereoWindowSettings
 };
 
 // Independent stereo output window.
-// Owns a camera actor, a custom viewport client, and an FSceneViewport.
+// Owns a custom viewport client and an FSceneViewport.
 // Renders its own scene via FSceneViewFamilyContext -- completely independent
 // of GEngine->StereoRenderingDevice and the main viewport pipeline.
 //
@@ -57,6 +56,9 @@ public:
 	// Move/resize the OS window to a specific monitor.
 	void MoveWindowToMonitor(int32 MonitorId, int32 Width, int32 Height);
 
+	// Set the world-space pose of the stereo camera.
+	void SetCameraPose(const FVector& Location, const FRotator& Rotation);
+
 	// Access the viewport client to update camera pose or IPD externally.
 	USStereoViewportClient* GetViewportClient() const { return ViewportClient; }
 
@@ -67,7 +69,6 @@ private:
 	TSharedPtr<SWindow>                OsWindow;
 	TSharedPtr<FSceneViewport>         SceneViewport;
 
-	TObjectPtr<ASStereoWindowCamera>   Camera;
 	TObjectPtr<USStereoViewportClient> ViewportClient;
 
 	bool bWindowOpen = false;

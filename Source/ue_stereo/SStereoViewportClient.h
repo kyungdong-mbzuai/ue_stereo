@@ -7,8 +7,6 @@
 #include "SceneView.h"
 #include "SStereoViewportClient.generated.h"
 
-class ASStereoWindowCamera;
-
 // Independent viewport client for the stereo output window.
 // Builds its own FSceneViewFamilyContext with two eye views and renders
 // directly via GetRendererModule().BeginRenderingViewFamily().
@@ -19,8 +17,10 @@ class UE_STEREO_API USStereoViewportClient : public UGameViewportClient
 	GENERATED_BODY()
 
 public:
-	// Camera actor used as the view origin for both eyes.
-	TWeakObjectPtr<ASStereoWindowCamera> StereoCamera;
+	// Camera pose — set externally each frame (e.g. from HMD head tracking).
+	FVector  CameraLocation = FVector::ZeroVector;
+	FRotator CameraRotation = FRotator::ZeroRotator;
+	float    CameraFOV      = 90.0f;
 
 	// World reference — set explicitly because this client has no GameInstance.
 	TWeakObjectPtr<UWorld> TargetWorld;
