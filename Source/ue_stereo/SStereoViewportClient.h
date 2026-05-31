@@ -28,6 +28,9 @@ public:
 	// OS window reference — used to enable stereo on the SViewport widget.
 	TWeakPtr<SWindow> TargetWindow;
 
+	// Main game viewport window — used to mirror HDR state from the primary display.
+	TWeakPtr<SWindow> MainWindow;
+
 	// Inter-pupillary distance in world units (cm).
 	float IPD = 0.0f;
 

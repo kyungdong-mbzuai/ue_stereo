@@ -74,9 +74,13 @@ static FSceneView* AddEyeView(
 	InitOptions.ViewOrigin             = EyeOrigin;
 	InitOptions.ViewRotationMatrix     = ViewRotMatrix;
 	InitOptions.ProjectionMatrix       = ProjMatrix;
-	InitOptions.StereoPass             = (ViewIndex == 0)
-		? EStereoscopicPass::eSSP_PRIMARY
-		: EStereoscopicPass::eSSP_SECONDARY;
+	// Both eyes are marked PRIMARY so each gets its own AddCombineLUTPass call.
+	// Marking the right eye as SECONDARY would cause the engine to reuse the
+	// primary view's cached tonemapping LUT (ViewState->PrevFrameViewInfo.TonemappingLUT),
+	// which is null on the first frame, triggering:
+	//   Assertion failed: Inputs.ColorGradingTexture [PostProcessTonemap.cpp:573]
+	// SBS split is handled entirely via ViewRect, so eSSP_PRIMARY is safe for both.
+	InitOptions.StereoPass = EStereoscopicPass::eSSP_PRIMARY;
 
 	// Apply camera post-process settings so tone-mapping, bloom, etc. match the main viewport.
 	InitOptions.OverrideFarClippingPlaneDistance = CamInfo.OrthoFarClipPlane;
@@ -84,13 +88,13 @@ static FSceneView* AddEyeView(
 	FSceneView* View = new FSceneView(InitOptions);
 	View->bIsGameView = true;
 
-	// Fix exposure: override auto-exposure with a fixed value so the stereo window
-	// brightness matches the main viewport. Without this, the missing ViewState
-	// EyeAdaptation history causes the renderer to use default (dark) exposure.
+	// Fix exposure: disable auto-exposure history (EyeAdaptation ShowFlag is off)
+	// and use manual exposure so the stereo window matches the main viewport.
+	// Without this override the renderer falls back to a default (dark) adaptation.
 	View->FinalPostProcessSettings.AutoExposureMethod           = EAutoExposureMethod::AEM_Manual;
-	View->FinalPostProcessSettings.AutoExposureBias             = 0.0f;
 	View->FinalPostProcessSettings.bOverride_AutoExposureMethod = true;
-	View->FinalPostProcessSettings.bOverride_AutoExposureBias   = true;
+	// AutoExposureBias left at its inherited value from OverridePostProcessSettings
+	// (camera component / post-process volume); do NOT force 0 here.
 
 	// Inject the camera component's post-process blend chain.
 	View->OverridePostProcessSettings(CamInfo.PostProcessSettings, CamInfo.PostProcessBlendWeight);
@@ -118,20 +122,26 @@ void USStereoViewportClient::Draw(FViewport* InViewport, FCanvas* SceneCanvas)
 	CamInfo.Rotation = CameraRotation;
 	CamInfo.FOV      = CameraFOV;
 
-	// Show flags: game view with SBS stereo.
-	// Post-process / tone-mapper disabled — no ULocalPlayer::CalcSceneView path
-	// is used, so the ColorGradingLUT is not generated.
+	// Copy ShowFlags from the main game viewport so lighting, shadow, and
+	// feature flags match exactly, then override only what this stereo path requires.
 	FEngineShowFlags ShowFlags(ESFIM_Game);
+	if (GEngine && GEngine->GameViewport)
+	{
+		ShowFlags = GEngine->GameViewport->EngineShowFlags;
+	}
+
+	// Stereo-path overrides: keep PostProcessing, Tonemapper, and ColorGrading
+	// enabled so AddCombineLUTPass runs for the primary (left) eye and the
+	// tonemapper converts linear HDR scene color to display space.
+	// Disabling PostProcessing sends scene color through DeviceEncodingOnly
+	// with no tonemapper, which outputs raw linear values and looks dark.
+	// EyeAdaptation is disabled because our ViewState has no adaptation history;
+	// manual exposure set in AddEyeView() keeps the brightness stable instead.
 	ShowFlags.SetStereoRendering(true);
-	ShowFlags.SetPostProcessing(false);
-	ShowFlags.SetTonemapper(false);
-	ShowFlags.SetColorGrading(false);
 	ShowFlags.SetEyeAdaptation(false);
 	ShowFlags.SetBloom(false);
-	ShowFlags.SetAmbientOcclusion(true);
 	ShowFlags.SetMotionBlur(false);
-	// Shadows: explicitly enabled so the stereo window matches the main viewport.
-	ShowFlags.SetDynamicShadows(true);
+
 
 	FSceneViewFamily::ConstructionValues CVS(InViewport, CurrentWorld->Scene, ShowFlags);
 	CVS.SetRealtimeUpdate(true);
@@ -139,8 +149,35 @@ void USStereoViewportClient::Draw(FViewport* InViewport, FCanvas* SceneCanvas)
 	CVS.bResolveScene = true;
 
 	FSceneViewFamilyContext ViewFamily(CVS);
-	// Match the main viewport HDR output state so scene color format is consistent.
-	ViewFamily.bIsHDR = TargetWindow.IsValid() && TargetWindow.Pin()->GetIsHDR();
+
+	// Mirror HDR and display gamma from the main game viewport so scene color
+	// format and encoding match exactly.
+	bool bMainIsHDR = false;
+	float MainDisplayGamma = 2.2f;
+	if (GEngine && GEngine->GameViewport)
+	{
+		if (MainWindow.IsValid())
+		{
+			bMainIsHDR = MainWindow.Pin()->GetIsHDR();
+		}
+		if (FViewport* MainVP = GEngine->GameViewport->Viewport)
+		{
+			MainDisplayGamma = MainVP->GetDisplayGamma();
+		}
+	}
+
+	UE_LOG(LogTemp, VeryVerbose, TEXT("[SStereoViewportClient] MainWindow HDR=%s DisplayGamma=%.4f"),
+		bMainIsHDR ? TEXT("true") : TEXT("false"), MainDisplayGamma);
+
+	ViewFamily.bIsHDR = bMainIsHDR;
+
+	// Apply the main viewport display gamma to the stereo scene viewport so
+	// PostProcessDeviceEncodingOnly uses the same InvDisplayGamma as the main viewport.
+	if (FSceneViewport* StereoVP = static_cast<FSceneViewport*>(Viewport))
+	{
+		StereoVP->SetGammaOverride(MainDisplayGamma);
+	}
+
 	ViewFamily.SetScreenPercentageInterface(new FLegacyScreenPercentageDriver(ViewFamily, 1.0f));
 
 	// Per-eye H-FOV = half of the full camera FOV (SBS layout).

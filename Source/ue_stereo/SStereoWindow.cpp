@@ -105,6 +105,9 @@ void SStereoWindow::Open(UWorld* World, AActor* Owner, const FStereoWindowSettin
 	ViewportClient->Viewport = SceneViewport.Get();
 	ViewportWidget->SetViewportInterface(SceneViewport.ToSharedRef());
 
+	// DisplayGamma is synchronized from the main game viewport each frame inside
+	// USStereoViewportClient::Draw(), so no static override is needed here.
+
 	// 3. Create the OS window and embed this widget as its content.
 	OsWindow = SNew(SWindow)
 		.Title(FText::FromString(TEXT("Stereo Output")))
@@ -124,10 +127,17 @@ void SStereoWindow::Open(UWorld* World, AActor* Owner, const FStereoWindowSettin
 
 	ViewportClient->TargetWindow = OsWindow;
 
-	// 5. Enable stereo on the SViewport widget (does not touch GEngine->StereoRenderingDevice).
+	// Set MainWindow to the primary game viewport window so HDR state is read
+	// from the correct display output (TargetWindow is the stereo-only secondary window).
+	if (GEngine && GEngine->GameViewport)
+	{
+		ViewportClient->MainWindow = GEngine->GameViewport->GetWindow();
+	}
+
+	// 4. Enable stereo on the SViewport widget (does not touch GEngine->StereoRenderingDevice).
 	ViewportClient->InitStereoRendering(ViewportWidget);
 
-	// 6. Position the window on the requested monitor.
+	// 5. Position the window on the requested monitor.
 	MoveWindowToMonitor(InSettings.MonitorId, InSettings.Width, InSettings.Height);
 
 	UE_LOG(LogTemp, Log, TEXT("[SStereoWindow] Opened on monitor %d (%dx%d)."),
