@@ -38,31 +38,14 @@ void ASimPlayerController::BeginPlay()
 
 
 	// Enable HMD to receive tracking data.
-	//UHeadMountedDisplayFunctionLibrary::EnableHMD(true);
+	UHeadMountedDisplayFunctionLibrary::EnableHMD(true);
 
-	if (GEngine->XRSystem.IsValid() && GEngine->XRSystem->GetHMDDevice())
-	{
-		IHeadMountedDisplay* HMD = GEngine->XRSystem->GetHMDDevice();
-		HMD->EnableHMD(true);
-		// Set IPD via HMD interface (OpenXR backend implements this)
-		HMD->SetInterpupillaryDistance(0.0f);
-
-
-		// EnableStereo(true) 없이 head tracking만 강제 활성화
-		//GEngine->XRSystem->SetHeadTrackingEnforced(true);
-
-		// EnableStereo(true) 가 실행되면 
-		// OculusXRHMD.cpp:707 -> InitDevice() 내부 호출 -> OVRPlugin 세션 시작
-		// 그러나, View Offset이 HMD에서 제공하는 값으로 고정되어 버리므로, IPD 조절이 불가능해짐.
-
-		GEngine->StereoRenderingDevice->EnableStereo(true);
-	}
 
 	// Use floor-level tracking origin for accurate coordinates.
 	UHeadMountedDisplayFunctionLibrary::SetTrackingOrigin(EHMDTrackingOrigin::LocalFloor);
 
 	// Disable stereo rendering so the main viewport is not split.
-	if (1)
+	if (0)
 	{
 		UE_LOG(LogTemp, Warning, TEXT("[SimStereo] PlayerController::BeginPlay - Disabling stereo rendering on main viewport"));
 	
@@ -71,10 +54,10 @@ void ASimPlayerController::BeginPlay()
 			//GEngine->StereoRenderingDevice->EnableStereo(false);	
 		}
 	}
-	if (1)
+	if (0)
 	{
-		//ESpectatorScreenMode Mode = ESpectatorScreenMode::SingleEyeCroppedToFill;
-		ESpectatorScreenMode Mode = ESpectatorScreenMode::Disabled;
+		ESpectatorScreenMode Mode = ESpectatorScreenMode::SingleEyeCroppedToFill;
+		//ESpectatorScreenMode Mode = ESpectatorScreenMode::Disabled;
 		UHeadMountedDisplayFunctionLibrary::SetSpectatorScreenMode(Mode);
 	}
 }
