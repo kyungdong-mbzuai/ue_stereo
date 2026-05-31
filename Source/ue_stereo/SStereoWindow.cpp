@@ -8,7 +8,6 @@
 #include "Slate/SceneViewport.h"
 #include "Widgets/SViewport.h"
 #include "Framework/Application/SlateApplication.h"
-#include "StereoRendering.h"
 
 // ---------------------------------------------------------------------------
 // Construct
@@ -181,26 +180,7 @@ void SStereoWindow::Tick()
 		return;
 	}
 
-	// Temporarily clear GEngine->StereoRenderingDevice during the stereo window draw.
-	// FSceneViewport::Draw() calls StereoRenderingDevice->NeedReAllocateViewportRenderTarget()
-	// on every viewport it draws. With OpenXR active, the HMD device forces our stereo window
-	// render target to its preferred resolution (e.g. 1168x560) each frame, conflicting with
-	// the configured stereo output resolution (e.g. 2560x1080) and causing repeated
-	// "Resizing VR buffer" log spam. Hiding the device during this draw prevents HMD involvement.
-	// The main game viewport draw (Super::Draw) restores normal HMD behavior immediately after.
-	TSharedPtr<IStereoRendering, ESPMode::ThreadSafe> SavedStereoDevice;
-	if (GEngine)
-	{
-		SavedStereoDevice = GEngine->StereoRenderingDevice;
-		GEngine->StereoRenderingDevice = nullptr;
-	}
-
 	SceneViewport->Draw(true);
-
-	if (GEngine)
-	{
-		GEngine->StereoRenderingDevice = SavedStereoDevice;
-	}
 }
 
 // ---------------------------------------------------------------------------

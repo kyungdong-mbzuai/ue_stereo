@@ -23,10 +23,14 @@ void USimGameViewportClient::Init(FWorldContext& WorldContext, UGameInstance* Ow
 
 	EngineShowFlags.SetStereoRendering(true);
 
+	UE_LOG(LogTemp, Warning, TEXT("[SimStereo] ViewportClient::Init - EngineShowFlags.StereoRendering set to true"));
 	UE_LOG(LogTemp, Warning, TEXT("[SimStereo] ViewportClient::Init - StereoRenderingDevice valid: %s"),
 		GEngine && GEngine->StereoRenderingDevice.IsValid() ? TEXT("YES") : TEXT("NO"));
 
 	LoadStereoWindowConfig();
+
+	//bCustomStereo = true;
+	//EnsureStereoDevice();
 }
 
 void USimGameViewportClient::BeginDestroy()
@@ -102,6 +106,40 @@ bool USimGameViewportClient::GetHMDHeadPose(FQuat& OutOrientation, FVector& OutP
 	return bSuccess;
 }
 
+void USimGameViewportClient::EnsureCustomStereo()
+{
+	if (!bCustomStereo)
+	{
+		return;
+	}
+
+	if (!GEngine)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[SimStereo] EnsureCustomStereo - GEngine is null"));
+		return;
+	}
+
+	// Create standalone SimStereoRendering if not yet created.
+	// GEngine->StereoRenderingDevice is intentionally NOT replaced so OpenXR XRSystem stays active.
+	if (!SimStereoRenderingDevice.IsValid())
+	{
+		SimStereoRenderingDevice = MakeShareable(new FSimStereoRendering());
+		SimStereoRenderingDevice->EnableStereo(true);
+		UE_LOG(LogTemp, Warning, TEXT("[SimStereo] EnsureCustomStereo - standalone FSimStereoRendering created (GEngine device NOT replaced)"));
+	}
+
+	// Share the standalone device with SimLocalPlayer so GetProjectionData can use AdjustViewRect.
+	ULocalPlayer* LP = GEngine->GetFirstGamePlayer(this);
+	USimLocalPlayer* SimPlayer = Cast<USimLocalPlayer>(LP);
+	if (SimPlayer && SimPlayer->CustomStereoDevice != SimStereoRenderingDevice)
+	{
+		SimPlayer->CustomStereoDevice = SimStereoRenderingDevice;
+		UE_LOG(LogTemp, Warning, TEXT("[SimStereo] EnsureCustomStereo - CustomStereoDevice shared with SimLocalPlayer"));
+	}
+
+	EngineShowFlags.SetStereoRendering(true);
+}
+
 void USimGameViewportClient::OpenStereoWindow(UWorld* InWorld, AActor* Owner)
 {
 	if (StereoWindow.IsValid() && StereoWindow->IsOpen())
@@ -148,13 +186,16 @@ void USimGameViewportClient::ToggleStereoWindow()
 
 void USimGameViewportClient::Draw(FViewport* InViewport, FCanvas* SceneCanvas)
 {
+	EnsureCustomStereo();
+
 	FVector HeadLocation;
 	FRotator HeadRotation;
-
+	//const bool bHasPose = GetHMDHeadPose(HeadRotation, HeadLocation);
 	UHeadMountedDisplayFunctionLibrary::GetOrientationAndPosition(HeadRotation, HeadLocation);
-	
-	//UE_LOG(LogTemp, Warning, TEXT("[SimStereo] GetHMDHeadPose - Orientation=%s Position=%s"),
-	//	*HeadRotation.ToString(), *HeadLocation.ToString());
+
+
+	UE_LOG(LogTemp, Warning, TEXT("[SimStereo] GetHMDHeadPose - Orientation=%s Position=%s"),
+		*HeadRotation.ToString(), *HeadLocation.ToString());
 
 	// Inject OpenXR HMD pose into SimLocalPlayer so GetProjectionData uses it each frame.
 	if (bCustomStereo)
@@ -180,13 +221,13 @@ void USimGameViewportClient::Draw(FViewport* InViewport, FCanvas* SceneCanvas)
 				HeadLocation.X, HeadLocation.Y, HeadLocation.Z));
 	}
 
-	// NOTE: Do NOT call ViewportWidget->EnableStereoRendering(true) here.
-	// Doing so registers the main SViewport with GEngine->StereoRenderingDevice (OpenXR HMD),
-	// which causes the HMD to resize the VR buffer to its preferred resolution every frame
-	// (e.g. 1168x560), conflicting with the stereo window (e.g. 2560x1080) and causing
-	// repeated "Resizing VR buffer" log spam. Stereo is handled exclusively inside
-	// SStereoViewportClient::Draw() via FSceneViewInitOptions, so no SViewport registration
-	// is needed or desired.
+	TSharedPtr<SViewport> ViewportWidget = GetGameViewportWidget();
+	if (ViewportWidget.IsValid() && !ViewportWidget->IsStereoRenderingAllowed())
+	{
+		ViewportWidget->EnableStereoRendering(true);
+		UE_LOG(LogTemp, Warning, TEXT("[SimStereo] ViewportClient::Draw - SViewport::EnableStereoRendering(true) called"));
+	}
+
 
 	// Render scene first so the viewport render target is populated.
 	Super::Draw(InViewport, SceneCanvas);

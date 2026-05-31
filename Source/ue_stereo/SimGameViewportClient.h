@@ -50,6 +50,7 @@ protected:
 	virtual void BeginDestroy() override;
 
 private:
+	void EnsureCustomStereo();
 	void LoadStereoWindowConfig();
 	
 	bool bCustomStereo              = false;
