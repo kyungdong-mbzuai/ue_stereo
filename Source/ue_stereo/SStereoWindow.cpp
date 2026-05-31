@@ -127,13 +127,6 @@ void SStereoWindow::Open(UWorld* World, AActor* Owner, const FStereoWindowSettin
 
 	ViewportClient->TargetWindow = OsWindow;
 
-	// Set MainWindow to the primary game viewport window so HDR state is read
-	// from the correct display output (TargetWindow is the stereo-only secondary window).
-	if (GEngine && GEngine->GameViewport)
-	{
-		ViewportClient->MainWindow = GEngine->GameViewport->GetWindow();
-	}
-
 	// 4. Enable stereo on the SViewport widget (does not touch GEngine->StereoRenderingDevice).
 	ViewportClient->InitStereoRendering(ViewportWidget);
 

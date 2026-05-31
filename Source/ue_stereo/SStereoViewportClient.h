@@ -5,7 +5,18 @@
 #include "CoreMinimal.h"
 #include "Engine/GameViewportClient.h"
 #include "SceneView.h"
+#include "ShowFlags.h"
 #include "SStereoViewportClient.generated.h"
+
+// Rendering settings mirrored from the main game viewport each frame.
+// SimGameViewportClient::Draw() fills this and pushes it to SStereoViewportClient
+// so the stereo window never needs to access GEngine or the main window directly.
+struct FMirroredRenderSettings
+{
+	bool             bIsHDR        = false;
+	float            DisplayGamma  = 2.2f;
+	FEngineShowFlags ShowFlags     = FEngineShowFlags(ESFIM_Game);
+};
 
 // Independent viewport client for the stereo output window.
 // Builds its own FSceneViewFamilyContext with two eye views and renders
@@ -28,9 +39,6 @@ public:
 	// OS window reference — used to enable stereo on the SViewport widget.
 	TWeakPtr<SWindow> TargetWindow;
 
-	// Main game viewport window — used to mirror HDR state from the primary display.
-	TWeakPtr<SWindow> MainWindow;
-
 	// Inter-pupillary distance in world units (cm).
 	float IPD = 0.0f;
 
@@ -39,6 +47,10 @@ public:
 
 	// Enable stereo rendering on the given SViewport widget.
 	void InitStereoRendering(TSharedPtr<SViewport> InViewportWidget);
+
+	// Rendering settings pushed from SimGameViewportClient::Draw() each frame.
+	// Avoids direct GEngine / main-window access inside the stereo draw path.
+	FMirroredRenderSettings MirroredSettings;
 
 	virtual void Draw(FViewport* InViewport, FCanvas* SceneCanvas) override;
 

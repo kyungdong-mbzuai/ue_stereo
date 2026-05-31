@@ -235,6 +235,21 @@ void USimGameViewportClient::Draw(FViewport* InViewport, FCanvas* SceneCanvas)
 	// Tick the independent stereo window -- triggers its own scene render.
 	if (StereoWindow.IsValid() && StereoWindow->IsOpen())
 	{
+		// Push main viewport rendering settings to the stereo viewport client
+		// before Tick() so SStereoViewportClient::Draw() never accesses GEngine directly.
+		USStereoViewportClient* StereoVC = StereoWindow->GetViewportClient();
+		if (StereoVC)
+		{
+			FMirroredRenderSettings MirroredSettings;
+			MirroredSettings.ShowFlags   = EngineShowFlags;
+			MirroredSettings.DisplayGamma = InViewport ? InViewport->GetDisplayGamma() : 2.2f;
+
+			TSharedPtr<SWindow> GameWindow = GetWindow();
+			MirroredSettings.bIsHDR = GameWindow.IsValid() && GameWindow->GetIsHDR();
+
+			StereoVC->MirroredSettings = MirroredSettings;
+		}
+
 		UWorld* CurrentWorld = GetWorld();
 		APlayerController* PC = CurrentWorld ? CurrentWorld->GetFirstPlayerController() : nullptr;
 		if (PC && PC->PlayerCameraManager)

@@ -122,13 +122,9 @@ void USStereoViewportClient::Draw(FViewport* InViewport, FCanvas* SceneCanvas)
 	CamInfo.Rotation = CameraRotation;
 	CamInfo.FOV      = CameraFOV;
 
-	// Copy ShowFlags from the main game viewport so lighting, shadow, and
-	// feature flags match exactly, then override only what this stereo path requires.
-	FEngineShowFlags ShowFlags(ESFIM_Game);
-	if (GEngine && GEngine->GameViewport)
-	{
-		ShowFlags = GEngine->GameViewport->EngineShowFlags;
-	}
+	// Copy ShowFlags from MirroredSettings (pushed by SimGameViewportClient::Draw()
+	// each frame) so lighting, shadow, and feature flags match the main viewport exactly.
+	FEngineShowFlags ShowFlags = MirroredSettings.ShowFlags;
 
 	// Stereo-path overrides: keep PostProcessing, Tonemapper, and ColorGrading
 	// enabled so AddCombineLUTPass runs for the primary (left) eye and the
@@ -150,21 +146,10 @@ void USStereoViewportClient::Draw(FViewport* InViewport, FCanvas* SceneCanvas)
 
 	FSceneViewFamilyContext ViewFamily(CVS);
 
-	// Mirror HDR and display gamma from the main game viewport so scene color
-	// format and encoding match exactly.
-	bool bMainIsHDR = false;
-	float MainDisplayGamma = 2.2f;
-	if (GEngine && GEngine->GameViewport)
-	{
-		if (MainWindow.IsValid())
-		{
-			bMainIsHDR = MainWindow.Pin()->GetIsHDR();
-		}
-		if (FViewport* MainVP = GEngine->GameViewport->Viewport)
-		{
-			MainDisplayGamma = MainVP->GetDisplayGamma();
-		}
-	}
+	// Mirror HDR and display gamma from MirroredSettings (pushed by SimGameViewportClient::Draw()).
+	// This avoids direct GEngine / main-window access inside the stereo draw path.
+	const bool  bMainIsHDR      = MirroredSettings.bIsHDR;
+	const float MainDisplayGamma = MirroredSettings.DisplayGamma;
 
 	UE_LOG(LogTemp, VeryVerbose, TEXT("[SStereoViewportClient] MainWindow HDR=%s DisplayGamma=%.4f"),
 		bMainIsHDR ? TEXT("true") : TEXT("false"), MainDisplayGamma);
