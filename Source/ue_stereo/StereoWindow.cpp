@@ -1,7 +1,7 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
-#include "SStereoWindow.h"
-#include "SStereoViewportClient.h"
+#include "StereoWindow.h"
+#include "StereoViewportClient.h"
 #include "SlateOptMacros.h"
 #include "Engine/Engine.h"
 #include "Engine/World.h"

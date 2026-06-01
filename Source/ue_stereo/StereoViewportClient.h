@@ -6,7 +6,7 @@
 #include "Engine/GameViewportClient.h"
 #include "SceneView.h"
 #include "ShowFlags.h"
-#include "SStereoViewportClient.generated.h"
+#include "StereoViewportClient.generated.h"
 
 // Rendering settings mirrored from the main game viewport each frame.
 // SimGameViewportClient::Draw() fills this and pushes it to SStereoViewportClient

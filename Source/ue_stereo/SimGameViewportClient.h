@@ -6,8 +6,8 @@
 #include "Engine/GameViewportClient.h"
 #include "StereoRendering.h"
 #include "SimStereoRendering.h"
-#include "SStereoWindow.h"
-#include "SStereoViewportClient.h"
+#include "StereoWindow.h"
+#include "StereoViewportClient.h"
 #include "SimGameViewportClient.generated.h"
 
 /**

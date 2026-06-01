@@ -1,6 +1,6 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
-#include "SStereoViewportClient.h"
+#include "StereoViewportClient.h"
 #include "Engine/Engine.h"
 #include "Engine/World.h"
 #include "SceneView.h"
