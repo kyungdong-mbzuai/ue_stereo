@@ -96,7 +96,7 @@ void SStereoWindow::Open(UWorld* World, AActor* Owner, const FStereoWindowSettin
 
 	// 1. Create the viewport client.
 	// AddToRoot prevents GC — the client is not owned by a GameInstance.
-	ViewportClient = NewObject<USStereoViewportClient>(GEngine, USStereoViewportClient::StaticClass());
+	ViewportClient = NewObject<UStereoViewportClient>(GEngine, UStereoViewportClient::StaticClass());
 	ViewportClient->AddToRoot();
 	ViewportClient->TargetWorld = World;
 

@@ -23,7 +23,7 @@ struct FMirroredRenderSettings
 // directly via GetRendererModule().BeginRenderingViewFamily().
 // This path is completely separate from GEngine->StereoRenderingDevice.
 UCLASS()
-class UE_STEREO_API USStereoViewportClient : public UGameViewportClient
+class UE_STEREO_API UStereoViewportClient : public UGameViewportClient
 {
 	GENERATED_BODY()
 

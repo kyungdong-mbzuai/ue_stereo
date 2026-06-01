@@ -11,7 +11,7 @@
 #include "Widgets/SViewport.h"
 #include "Slate/SceneViewport.h"
 
-void USStereoViewportClient::InitStereoRendering(TSharedPtr<SViewport> InViewportWidget)
+void UStereoViewportClient::InitStereoRendering(TSharedPtr<SViewport> InViewportWidget)
 {
 	// Do NOT call EnableStereoRendering(true) here.
 	// Doing so registers this SViewport with GEngine->StereoRenderingDevice,
@@ -22,7 +22,7 @@ void USStereoViewportClient::InitStereoRendering(TSharedPtr<SViewport> InViewpor
 	UE_LOG(LogTemp, Log, TEXT("[SStereoViewportClient] InitStereoRendering complete (manual stereo, no SViewport registration)"));
 }
 
-void USStereoViewportClient::SetCameraTransform(const FVector& Location, const FRotator& Rotation)
+void UStereoViewportClient::SetCameraTransform(const FVector& Location, const FRotator& Rotation)
 {
 	CameraLocation = Location;
 	CameraRotation = Rotation;
@@ -103,7 +103,7 @@ static FSceneView* AddEyeView(
 	return View;
 }
 
-void USStereoViewportClient::Draw(FViewport* InViewport, FCanvas* SceneCanvas)
+void UStereoViewportClient::Draw(FViewport* InViewport, FCanvas* SceneCanvas)
 {
 	UWorld* CurrentWorld = TargetWorld.Get();
 	if (!CurrentWorld || !CurrentWorld->Scene)

@@ -12,7 +12,7 @@
 #include "Windows/HideWindowsPlatformTypes.h"
 #endif
 
-class USStereoViewportClient;
+class UStereoViewportClient;
 class FSceneViewport;
 class UWorld;
 
@@ -60,7 +60,7 @@ public:
 	void SetCameraPose(const FVector& Location, const FRotator& Rotation);
 
 	// Access the viewport client to update camera pose or IPD externally.
-	USStereoViewportClient* GetViewportClient() const { return ViewportClient; }
+	UStereoViewportClient* GetViewportClient() const { return ViewportClient; }
 
 private:
 	static FVector2D GetMonitorOrigin(int32 MonitorId);
@@ -69,7 +69,7 @@ private:
 	TSharedPtr<SWindow>                OsWindow;
 	TSharedPtr<FSceneViewport>         SceneViewport;
 
-	TObjectPtr<USStereoViewportClient> ViewportClient;
+	TObjectPtr<UStereoViewportClient> ViewportClient;
 
 	bool bWindowOpen = false;
 };

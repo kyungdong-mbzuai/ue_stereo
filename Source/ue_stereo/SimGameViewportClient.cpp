@@ -240,7 +240,7 @@ void USimGameViewportClient::Draw(FViewport* InViewport, FCanvas* SceneCanvas)
 	{
 		// Push main viewport rendering settings to the stereo viewport client
 		// before Tick() so SStereoViewportClient::Draw() never accesses GEngine directly.
-		USStereoViewportClient* StereoVC = StereoWindow->GetViewportClient();
+		UStereoViewportClient* StereoVC = StereoWindow->GetViewportClient();
 		if (StereoVC)
 		{
 			FMirroredRenderSettings MirroredSettings;
